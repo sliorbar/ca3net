@@ -7,6 +7,8 @@ author: András Ecker last update: 08.2018
 
 import os, sys, warnings
 from brian2 import *
+from brian2.units.allunits import second
+from brian2.units.stdunits import ms
 set_device("cpp_standalone")  # speed up the simulation with generated C++ code
 import numpy as np
 import random as pyrandom

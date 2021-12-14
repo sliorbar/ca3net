@@ -75,7 +75,8 @@ def plot_raster(spike_times, spiking_neurons, rate, hist, slice_idx, color_, mul
 
     fig.tight_layout()
 
-    fig_name = os.path.join(fig_dir, "%.2f*.png"%multiplier_)
+    #fig_name = os.path.join(fig_dir, "%.2f*.png"%multiplier_)
+    fig_name = os.path.join(fig_dir, "%.2f.png"%multiplier_)
     fig.savefig(fig_name)
 
 

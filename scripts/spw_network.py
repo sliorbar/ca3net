@@ -8,6 +8,8 @@ authors: András Ecker, Bence Bagi, Szabolcs Káli last update: 07.2019
 import os
 import sys
 import shutil
+from brian2.units.allunits import mvolt, nsecond, second
+from brian2.units.stdunits import Hz, mV, ms, nS, pA
 import numpy as np
 import random as pyrandom
 from brian2 import *
@@ -240,7 +242,7 @@ def analyse_results(SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC,
 
         if not linear:
             slice_idx = []
-            replay_ROI = np.where((150 <= bin_edges_PC) & (bin_edges_PC <= 850))
+            replay_ROI = np.where((150 <= bin_edges_PC) & (bin_edges_PC <= 850)) 
             replay, _ = replay_circular(ISI_hist_PC[replay_ROI])
         else:
             slice_idx = slice_high_activity(rate_PC, th=2, min_len=260)
