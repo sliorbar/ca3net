@@ -9,6 +9,8 @@ import os, pickle
 import numpy as np
 import random as pyrandom
 from brian2 import *
+from brian2.units.allunits import *
+from brian2.units.stdunits import *
 prefs.codegen.target = "numpy"
 base_path = os.path.sep.join(os.path.abspath("__file__").split(os.path.sep)[:-3])
 # add "scripts" directory to the path (to import modules)

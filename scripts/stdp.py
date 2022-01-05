@@ -10,6 +10,8 @@ import os, sys, warnings
 import numpy as np
 import random as pyrandom
 from brian2 import *
+from brian2.units.allunits import *
+from brian2.units.stdunits import *
 set_device("cpp_standalone")  # speed up the simulation with generated C++ code
 import matplotlib.pyplot as plt
 from helper import load_spike_trains, save_wmx

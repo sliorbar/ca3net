@@ -11,7 +11,8 @@ import numpy as np
 import pywt
 from brian2.units import *
 from poisson_proc import hom_poisson, get_tuning_curve_linear
-
+from brian2.units.allunits import *
+from brian2.units.stdunits import *
 
 base_path = os.path.sep.join(os.path.abspath("__file__").split(os.path.sep)[:-2])
 nPCs = 8000

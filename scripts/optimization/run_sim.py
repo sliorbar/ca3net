@@ -9,6 +9,8 @@ import os
 import numpy as np
 import random as pyrandom
 from brian2 import *
+from brian2.units.allunits import *
+from brian2.units.stdunits import *
 prefs.codegen.target = "numpy"#cython  # weave is not multiprocess-safe!
 
 
