@@ -8,8 +8,6 @@ authors: András Ecker, Bence Bagi, Szabolcs Káli last update: 07.2019
 import os
 import sys
 import shutil
-from brian2.units.allunits import *
-from brian2.units.stdunits import *
 import numpy as np
 import random as pyrandom
 from brian2 import *
@@ -242,7 +240,7 @@ def analyse_results(SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC,
 
         if not linear:
             slice_idx = []
-            replay_ROI = np.where((150 <= bin_edges_PC) & (bin_edges_PC <= 850)) 
+            replay_ROI = np.where((150 <= bin_edges_PC) & (bin_edges_PC <= 850))
             replay, _ = replay_circular(ISI_hist_PC[replay_ROI])
         else:
             slice_idx = slice_high_activity(rate_PC, th=2, min_len=260)
@@ -335,7 +333,6 @@ if __name__ == "__main__":
 
     try:
         STDP_mode = sys.argv[1]
-        STDP_mode_Input = sys.argv[2]
     except:
         STDP_mode = "sym"
     assert STDP_mode in ["sym", "asym"]
@@ -347,7 +344,7 @@ if __name__ == "__main__":
     place_cell_ratio = 0.5
     seed = 12345
 
-    f_in = "wmx_%s_%.1f_linear.pkl"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
+    f_in = "wmx_%s_%.1f_linear.pkl"%(STDP_mode, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)
     PF_pklf_name = os.path.join(base_path, "files", "PFstarts_%s_linear.pkl" % place_cell_ratio) if linear else None
     dir_name = os.path.join(base_path, "figures", "%.2f_replay_det_%s_%.1f" % (1, STDP_mode, place_cell_ratio)) if linear else None
 

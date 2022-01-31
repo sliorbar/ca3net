@@ -22,12 +22,6 @@ len_sim = 10000  # ms
 spike_th_PC = -3.25524288  # (re-optimized by Szabolcs)
 spike_th_BC = -34.78853881  # (re-optimized by Szabolcs)
 
-def set_len_sim(lenSim):
-    global len_sim
-    len_sim = lenSim
-def set_fig_dir(figpath):
-    global fig_dir
-    fig_dir = figpath
 
 def plot_raster(spike_times, spiking_neurons, rate, hist, slice_idx, color_, multiplier_):
     """
@@ -82,9 +76,8 @@ def plot_raster(spike_times, spiking_neurons, rate, hist, slice_idx, color_, mul
     fig.tight_layout()
 
     #fig_name = os.path.join(fig_dir, "%.2f*.png"%multiplier_)
-    fig_name = os.path.join(fig_dir, "PC_Raster_%.2f.png"%multiplier_)
+    fig_name = os.path.join(fig_dir, "%.2f.png"%multiplier_)
     fig.savefig(fig_name)
-    print('file saved ' + fig_name)
     plt.close(fig)
 
 
@@ -1005,7 +998,6 @@ def plot_EPS_dist(peak_EPSPs, peak_EPSCs, save_name):
     fig.tight_layout()
     fig_name = os.path.join(fig_dir, "%s.png"%save_name)
     fig.savefig(fig_name)
-    plt.close(fig)
 
 
 # not used in the final version...

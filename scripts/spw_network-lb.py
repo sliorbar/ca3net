@@ -13,17 +13,21 @@ from brian2.units.stdunits import *
 import numpy as np
 import random as pyrandom
 from brian2 import *
+from sqlalchemy import false
 prefs.codegen.target = "numpy"
 import matplotlib.pyplot as plt
 from helper import load_wmx, preprocess_monitors, generate_cue_spikes,\
-                   save_vars, save_PSD, save_TFR, save_LFP, save_replay_analysis
+                   save_vars, save_PSD, save_TFR, save_LFP, save_replay_analysis,save_wmx
 from detect_replay import replay_circular, slice_high_activity, replay_linear
 from detect_oscillations import analyse_rate, ripple_AC, ripple, gamma, calc_TFR, analyse_estimated_LFP
-from plots import plot_raster, plot_posterior_trajectory, plot_PSD, plot_TFR, plot_zoomed, plot_detailed, plot_LFP
+from plots import plot_raster, plot_posterior_trajectory, plot_PSD, plot_TFR, plot_zoomed, plot_detailed, plot_LFP, set_fig_dir, plot_wmx,set_len_sim
 
 
 base_path = os.path.sep.join(os.path.abspath("__file__").split(os.path.sep)[:-2])
-
+org_sim_len = 10000
+first_break_sim_len = 2000
+end_sim_len = 8000
+total_sim_len=org_sim_len+first_break_sim_len+end_sim_len
 # population size
 nPCs = 8000
 nBCs = 150
@@ -130,7 +134,7 @@ dx_gaba/dt = -x_gaba/decay_BC_I : 1
 """
 
 
-def run_simulation(wmx_PC_E, STDP_mode, cue, save, seed, verbose=True):
+def run_simulation(wmx_PC_E, STDP_mode, cue, save, seed, verbose=True, folder=None):
     """
     Sets up the network and runs simulation
     :param wmx_PC_E: np.array representing the recurrent excitatory synaptic weight matrix
@@ -176,6 +180,21 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, seed, verbose=True):
         C_PC_cue.connect(i=np.arange(0, 100), j=np.arange(7500, 7600))
 
     # weight matrix used here
+    if STDP_mode == "asym":
+        taup = taum = 20 * ms
+        Ap = 0.01
+        Am = -Ap
+        wmax = 4e-8  # S
+        scale_factor = 1.27
+    elif STDP_mode == "sym":
+        taup = taum = 62.5 * ms
+        Ap = Am = 4e-3
+        wmax = 2e-8  # S
+        scale_factor = 0.62
+    wmax = np.amax(wmx_PC_E)
+    Ap *= wmax
+    Am *= wmax  
+
     C_PC_E = Synapses(PCs, PCs, "w_exc:1", on_pre="x_ampa+=norm_PC_E*w_exc", delay=delay_PC_E)
     nonzero_weights = np.nonzero(wmx_PC_E)
     C_PC_E.connect(i=nonzero_weights[0], j=nonzero_weights[1])
@@ -200,11 +219,91 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, seed, verbose=True):
     StateM_PC = StateMonitor(PCs, variables=["vm", "w", "g_ampa", "g_ampaMF", "g_gaba"], record=selection.tolist(), dt=0.1*ms)
     StateM_BC = StateMonitor(BCs, "vm", record=[nBCs/2], dt=0.1*ms)
 
+    net = Network(PCs,BCs,MF,C_PC_MF,C_PC_E,C_PC_I,C_BC_E,C_BC_I, SM_PC,SM_BC,RM_PC,RM_BC,StateM_PC,StateM_BC)
+    PCs_Weights = np.zeros((nPCs, nPCs))
+    PCs_Weights_A = np.zeros((nPCs, nPCs))
+    PCs_Weights_B = np.zeros((nPCs, nPCs))
+    PCs_Weights[C_PC_E.i[:], C_PC_E.j[:]] = C_PC_E.w_exc[:]
+    #PCWf_name = os.path.join(folder,'PC_Weights_baseline')
+    #PCPf_name = os.path.join(folder,'PC_Weights_Diagram_baseline')
+    #save_wmx(PCs_Weights, PCWf_name)
+    #plot_wmx(PCs_Weights, save_name=PCPf_name)
+    
+    #PCs_Weights[C_PC_E.i[:], C_PC_E.j[:]] = C_PC_E.w_exc[:]
+    PCWf_name = os.path.join(folder,'PC_Weights_before')
+    PCPf_name = os.path.join(folder,'PC_Weights_Diagram_before')
+    #save_wmx(PCs_Weights, PCWf_name)
+    plot_wmx(PCs_Weights, save_name=PCPf_name)
+    #wmax = np.amax(C_PC_E.w[:])
+    C_PC_E_STDP = Synapses(PCs, PCs,'''
+    w_exc:1
+    dA_presyn/dt = -A_presyn/taup : 1 (event-driven)
+    dA_postsyn/dt = -A_postsyn/taum : 1 (event-driven)
+    ''', 
+    on_pre='''
+    A_presyn += Ap
+    w_exc = w_exc + A_postsyn
+    x_ampa+=norm_PC_E*w_exc   
+    ''',
+    on_post='''
+    A_postsyn += Am
+    w_exc = w_exc + A_presyn
+    ''',
+    delay=delay_PC_E)
+    C_PC_E_STDP.connect(i=nonzero_weights[0], j=nonzero_weights[1])
+    
+    #C_PC_E_STDP.A_presyn = 0
+    #C_PC_E_STDP.A_postsyn = 0
+    #C_PC_E_STDP.active=False
+    
+    #run(5000*ms,report="text")
+    C_PC_E_STDP.w_exc=C_PC_E.w_exc
+    C_PC_E_STDP.w[:]=C_PC_E.w[:]
+    #C_PC_E.active=False
+    #C_PC_E_STDP.active=True
     if verbose:
-        run(10000*ms, report="text")
+        net.run(org_sim_len*ms, report="text")
+        #net.store()
+        #run(4000*ms, report="text")
+        #store()
+    
     else:
-        run(10000*ms)
-
+        #run(10000*ms)
+        #store()
+        net.run(org_sim_len*ms)
+        #net.store()
+    
+    net.remove(C_PC_E)
+    net.add(C_PC_E_STDP)
+    #del C_PC_E
+    print('Switched to classical STDP')
+    #net = Network(PCs,BCs,MF,C_PC_MF,C_PC_E_STDP,C_PC_I,C_BC_E,C_BC_I, SM_PC,SM_BC,RM_PC,RM_BC,StateM_PC,StateM_BC)
+    #run(2000*ms,report="text")
+    #net.store()
+    if verbose:
+        net.run(first_break_sim_len*ms, report="text")
+    else:
+        net.run(first_break_sim_len*ms)
+    PCs_Weights_A[C_PC_E_STDP.i[:], C_PC_E_STDP.j[:]] = C_PC_E_STDP.w_exc[:]
+    PCWf_name = os.path.join(folder,'PC_Weights_Mid')
+    PCPf_name = os.path.join(folder,'PC_Weights_Diagram_Mid')
+    #save_wmx(PCs_Weights, PCWf_name)
+    plot_wmx(PCs_Weights_A, save_name=PCPf_name)
+    plot_wmx(PCs_Weights -PCs_Weights_A, save_name=PCPf_name+'_diff')
+    #net.restore()
+    #run(3000*ms, report="text")
+    if verbose:
+        net.run(end_sim_len*ms, report="text")
+    else:
+        net.run(end_sim_len*ms)
+    PCs_Weights_B[C_PC_E_STDP.i[:], C_PC_E_STDP.j[:]] = C_PC_E_STDP.w_exc[:]
+    PCWf_name = os.path.join(folder,'PC_Weights_end')
+    PCPf_name = os.path.join(folder,'PC_Weights_Diagram_end')
+    #save_wmx(PCs_Weights, PCWf_name)
+    plot_wmx(PCs_Weights_B, save_name=PCPf_name)
+    plot_wmx(PCs_Weights -PCs_Weights_B, save_name=PCPf_name+'_diff_org_B')
+    plot_wmx(PCs_Weights_A -PCs_Weights_B, save_name=PCPf_name+'_diff_A_B')
+ 
     if save:
         save_vars(SM_PC, RM_PC, StateM_PC, selection, seed)
 
@@ -242,7 +341,7 @@ def analyse_results(SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC,
 
         if not linear:
             slice_idx = []
-            replay_ROI = np.where((150 <= bin_edges_PC) & (bin_edges_PC <= 850)) 
+            replay_ROI = np.where((150 <= bin_edges_PC) & (bin_edges_PC <= 850))
             replay, _ = replay_circular(ISI_hist_PC[replay_ROI])
         else:
             slice_idx = slice_high_activity(rate_PC, th=2, min_len=260)
@@ -251,8 +350,10 @@ def analyse_results(SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC,
             replay, replay_results = replay_linear(spike_times_PC, spiking_neurons_PC, slice_idx, pklf_name, N=30)
             if slice_idx:
                 if os.path.isdir(dir_name):
-                    shutil.rmtree(dir_name)
-                    os.mkdir(dir_name)
+#                    shutil.rmtree(dir_name)
+#                    os.mkdir(dir_name)
+                    print('Directory Exists')
+
                 else:
                     os.mkdir(dir_name)
                 for bounds, tmp in replay_results.items():
@@ -336,6 +437,7 @@ if __name__ == "__main__":
     try:
         STDP_mode = sys.argv[1]
         STDP_mode_Input = sys.argv[2]
+        FolderDescription = sys.argv[3]
     except:
         STDP_mode = "sym"
     assert STDP_mode in ["sym", "asym"]
@@ -350,11 +452,16 @@ if __name__ == "__main__":
     f_in = "wmx_%s_%.1f_linear.pkl"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
     PF_pklf_name = os.path.join(base_path, "files", "PFstarts_%s_linear.pkl" % place_cell_ratio) if linear else None
     dir_name = os.path.join(base_path, "figures", "%.2f_replay_det_%s_%.1f" % (1, STDP_mode, place_cell_ratio)) if linear else None
-
+    dir_name_save = os.path.join(base_path, "figures", "%.2f_replay_det_%s_%.1f" % (1, STDP_mode, place_cell_ratio) ,FolderDescription) if linear else None
+    set_fig_dir(dir_name_save)
+    set_len_sim(total_sim_len)
+    if os.path.isdir(dir_name_save) == False:
+        os.mkdir(dir_name_save)
+        print("dir exist: " + dir_name_save)
     wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in)) * 1e9  # *1e9 nS conversion
     SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC = run_simulation(wmx_PC_E, STDP_mode, cue=cue,
-                                                                                 save=save, seed=seed, verbose=verbose)
+                                                                                 save=save, seed=seed, verbose=verbose, folder=dir_name_save)
     _ = analyse_results(SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC, seed=seed,
-                        multiplier=1, linear=linear, pklf_name=PF_pklf_name, dir_name=dir_name, TFR=TFR,
+                        multiplier=1, linear=linear, pklf_name=PF_pklf_name, dir_name=dir_name_save, TFR=TFR,
                         save=save, verbose=verbose)
     plt.show()
