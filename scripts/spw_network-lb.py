@@ -20,13 +20,13 @@ from helper import load_wmx, preprocess_monitors, generate_cue_spikes,\
                    save_vars, save_PSD, save_TFR, save_LFP, save_replay_analysis,save_wmx
 from detect_replay import replay_circular, slice_high_activity, replay_linear
 from detect_oscillations import analyse_rate, ripple_AC, ripple, gamma, calc_TFR, analyse_estimated_LFP
-from plots import plot_raster, plot_posterior_trajectory, plot_PSD, plot_TFR, plot_zoomed, plot_detailed, plot_LFP, set_fig_dir, plot_wmx,set_len_sim
+from plots import plot_violin, plot_raster, plot_posterior_trajectory, plot_PSD, plot_TFR, plot_zoomed, plot_detailed, plot_LFP, set_fig_dir, plot_wmx,set_len_sim,plot_histogram_wmx
 
 
 base_path = os.path.sep.join(os.path.abspath("__file__").split(os.path.sep)[:-2])
 org_sim_len = 10000
 first_break_sim_len = 2000
-end_sim_len = 8000
+end_sim_len = 18000
 total_sim_len=org_sim_len+first_break_sim_len+end_sim_len
 # population size
 nPCs = 8000
@@ -199,7 +199,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, seed, verbose=True, folder=No
     nonzero_weights = np.nonzero(wmx_PC_E)
     C_PC_E.connect(i=nonzero_weights[0], j=nonzero_weights[1])
     C_PC_E.w_exc = wmx_PC_E[nonzero_weights].flatten()
-    del wmx_PC_E
+    #C_PC_E.w_exc = C_PC_E.w_exc*1e-9 #Convert back to ns
 
     C_PC_I = Synapses(BCs, PCs, on_pre="x_gaba+=norm_PC_I*w_PC_I", delay=delay_PC_I)
     C_PC_I.connect(p=connection_prob_BC)
@@ -234,6 +234,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, seed, verbose=True, folder=No
     PCPf_name = os.path.join(folder,'PC_Weights_Diagram_before')
     #save_wmx(PCs_Weights, PCWf_name)
     plot_wmx(PCs_Weights, save_name=PCPf_name)
+    plot_histogram_wmx(PCs_Weights, save_name=PCPf_name + '_histogram')
     #wmax = np.amax(C_PC_E.w[:])
     C_PC_E_STDP = Synapses(PCs, PCs,'''
     w_exc:1
@@ -289,7 +290,8 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, seed, verbose=True, folder=No
     PCPf_name = os.path.join(folder,'PC_Weights_Diagram_Mid')
     #save_wmx(PCs_Weights, PCWf_name)
     plot_wmx(PCs_Weights_A, save_name=PCPf_name)
-    plot_wmx(PCs_Weights -PCs_Weights_A, save_name=PCPf_name+'_diff')
+    plot_histogram_wmx(PCs_Weights_A, save_name=PCPf_name + '_histogram')
+    plot_violin(PCs_Weights, PCs_Weights_A, save_name=PCPf_name+'_diff_org_A')
     #net.restore()
     #run(3000*ms, report="text")
     if verbose:
@@ -301,8 +303,9 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, seed, verbose=True, folder=No
     PCPf_name = os.path.join(folder,'PC_Weights_Diagram_end')
     #save_wmx(PCs_Weights, PCWf_name)
     plot_wmx(PCs_Weights_B, save_name=PCPf_name)
-    plot_wmx(PCs_Weights -PCs_Weights_B, save_name=PCPf_name+'_diff_org_B')
-    plot_wmx(PCs_Weights_A -PCs_Weights_B, save_name=PCPf_name+'_diff_A_B')
+    plot_histogram_wmx(PCs_Weights_B, save_name=PCPf_name + '_histogram')
+    plot_violin(PCs_Weights, PCs_Weights_B, save_name=PCPf_name+'_diff_org_B')
+    plot_violin(PCs_Weights_A, PCs_Weights_B, save_name=PCPf_name+'_diff_A_B')
  
     if save:
         save_vars(SM_PC, RM_PC, StateM_PC, selection, seed)
@@ -449,6 +452,7 @@ if __name__ == "__main__":
     place_cell_ratio = 0.5
     seed = 12345
 
+    #f_in = "wmx_%s_%.1f_2envs_linear.pkl"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
     f_in = "wmx_%s_%.1f_linear.pkl"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
     PF_pklf_name = os.path.join(base_path, "files", "PFstarts_%s_linear.pkl" % place_cell_ratio) if linear else None
     dir_name = os.path.join(base_path, "figures", "%.2f_replay_det_%s_%.1f" % (1, STDP_mode, place_cell_ratio)) if linear else None

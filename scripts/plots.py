@@ -5,11 +5,18 @@ authors: András Ecker, Bence Bagi last update: 02.2019
 """
 
 import os
+from tokenize import Name
+from turtle import distance
+from unicodedata import name
+from cv2 import threshold
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import pandas as pd
+from sqlalchemy import column
 from helper import _avg_rate
+from pandas import DataFrame as df
 
 
 sns.set(style="ticks", context="notebook")
@@ -564,6 +571,90 @@ def plot_wmx(wmx, save_name):
     fig.savefig(fig_name)
     plt.close(fig)
 
+def plot_histogram_wmx(wmx, save_name):
+    """
+    Saves figure with the weight matrix
+    :param wmx: numpy array representing the weight matrix
+    :param save_name: name of saved img
+    """
+    nbins = 20
+    dframe = df(wmx)
+    nonzero_w = np.nonzero(wmx)
+    data_array = wmx[nonzero_w]
+    data_array = np.round(data_array,2)
+    data_array = data_array[data_array > 0.5]
+    data=np.array(data_array).flatten()
+    fig = plt.figure()
+    max=np.amax(data)
+    plt.ylim(0,data.size/10)
+    plt.xlim(-max,max)
+    sns.histplot(data=data,stat='count', bins=nbins)
+    fig_name = os.path.join(fig_dir, "%s.png"%save_name)
+    fig.savefig(fig_name)
+    plt.close(fig)
+
+def plot_violin(w_exc1, w_exc2, save_name,w_threshold=0.3,dist_threshold=10):
+    """
+    Saves figure with the weight matrix changes in violin plot
+   
+    """
+    #nbins = 20
+    dframe3 = df(w_exc1)
+    #colnames = dframe3.columns
+    dframe3.insert(0,column="i",value=dframe3.index)
+    dframe3 = dframe3.melt(id_vars='i',var_name='j',value_name="weight")
+    dframe3.insert(3,column="bucket",value=np.round(dframe3['weight'],1))
+    dframe3 = dframe3[dframe3['weight']>w_threshold]
+    dframe3.insert(4,column="distance",value=abs(dframe3['i'] - dframe3['j']))
+    
+    dframe3 = dframe3[dframe3['distance']<=dist_threshold]
+    dframe3.drop(columns=['i','j'])
+    table1 = pd.pivot_table(data=dframe3,aggfunc='count',values='weight',index=['bucket','distance'])
+    table1.reset_index(inplace=True)
+    #table1=table1.melt(id_vars=['bucket','distance'])
+    dframe3.insert(0,'Source','Original')
+    dframe4 = df(w_exc2)
+    #colnames = dframe3.columns
+    dframe4.insert(0,column="i",value=dframe4.index)
+    dframe4 = dframe4.melt(id_vars='i',var_name='j',value_name="weight")
+    dframe4.insert(3,column="bucket",value=np.round(dframe4['weight'],1))
+    dframe4 = dframe4[dframe4['weight']>w_threshold]
+    dframe4.insert(4,column="distance",value=abs(dframe4['i'] - dframe4['j']))
+    
+    dframe4 = dframe4[dframe4['distance']<=dist_threshold]
+    dframe4.drop(columns=['i','j'])
+    table2 = pd.pivot_table(data=dframe4,aggfunc='count',values='weight',index=['bucket','distance'])
+    table2.reset_index(inplace=True)
+    #table1=table1.melt(id_vars=['bucket','distance'])
+    
+    dframe4.insert(0,'Source','Final')
+    frames = [dframe3,dframe4]
+    consolidated_data = pd.concat(frames)
+    #consolidated_data = consolidated_data.drop(columns=['variable'])
+    #consolidated_data['distance_from_diag'] = abs(consolidated_data['variable']- consolidated_data.index)
+    #table = pd.pivot_table(data=consolidated_data,aggfunc='count',values='value',columns='Source',index='value')
+    #table = pd.crosstab(index=consolidated_data['value'],aggfunc=np.bincount,values=consolidated_data['variable'],columns=consolidated_data['Source'])
+    #table = table.T
+    #table.reindex()
+    #table=table.melt(value_vars=dframe2.columns.name)
+    fig = plt.figure()
+    #plt.ylim(0,data.size/10)
+    #plt.xlim(-max,max)
+    sns.violinplot( x='distance', y='bucket',hue='Source',
+                    data=consolidated_data, palette='muted', split=True)
+    fig_name = os.path.join(fig_dir, "%s.png"%save_name)
+    fig.savefig(fig_name)
+    plt.close(fig)
+    fig = plt.figure()
+    consolidated_data.drop(columns='distance')
+    table3 = pd.pivot_table(data=consolidated_data,aggfunc='sum',values='weight',index=['bucket','Source'])
+    table3.reset_index(inplace=True)
+    table3.insert(0,column='all',value='all')
+    sns.violinplot( x='all', y='bucket',hue='Source',
+                    data=table3, palette='muted', split=True)
+    fig_name = os.path.join(fig_dir, "%s_all.png"%save_name)
+    fig.savefig(fig_name)
+    plt.close(fig)
 
 def plot_wmx_avg(wmx, n_pops, save_name):
     """
