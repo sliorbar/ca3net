@@ -181,9 +181,11 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, seed, verbose=True, folder=No
 
     # weight matrix used here
     if STDP_mode == "asym":
-        taup = taum = 20 * ms
-        Ap = 0.01
-        Am = -Ap
+        #taup = taum = 20 * ms
+        taup = 20 * ms # Windows for pre is half that of post
+        taum = 20 * ms
+        Ap = 0.1
+        Am = -Ap * 0.95 # Post syn stdp stronger by 10% on post than on pre
         wmax = 4e-8  # S
         scale_factor = 1.27
     elif STDP_mode == "sym":
