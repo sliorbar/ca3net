@@ -12,16 +12,18 @@ from brian2.units.allunits import *
 from brian2.units.stdunits import *
 import numpy as np
 import random as pyrandom
+import sqlalchemy as sql
+import pandas as pd
 from brian2 import *
 from sqlalchemy import false
+from sympy import true
 prefs.codegen.target = "numpy"
 import matplotlib.pyplot as plt
 from helper import load_wmx, preprocess_monitors, generate_cue_spikes,\
                    save_vars, save_PSD, save_TFR, save_LFP, save_replay_analysis,save_wmx
 from detect_replay import replay_circular, slice_high_activity, replay_linear
 from detect_oscillations import analyse_rate, ripple_AC, ripple, gamma, calc_TFR, analyse_estimated_LFP
-from plots import plot_violin, plot_raster, plot_posterior_trajectory, plot_PSD, plot_TFR, plot_zoomed, plot_detailed, plot_LFP, set_fig_dir, plot_wmx,set_len_sim,plot_histogram_wmx
-
+from plots import plot_violin, plot_raster, plot_posterior_trajectory, plot_PSD, plot_TFR, plot_zoomed, plot_detailed, plot_LFP, set_fig_dir, plot_wmx,set_len_sim,plot_histogram_wmx, plot_Zoom_Weights
 
 base_path = os.path.sep.join(os.path.abspath("__file__").split(os.path.sep)[:-2])
 org_sim_len = 10000
@@ -184,8 +186,8 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, seed, verbose=True, folder=No
         #taup = taum = 20 * ms
         taup = 20 * ms # Windows for pre is half that of post
         taum = 20 * ms
-        Ap = 0.1
-        Am = -Ap * 0.95 # Post syn stdp stronger by 10% on post than on pre
+        Ap = 0.01
+        Am = -Ap * 1.1 # Post syn stdp stronger by 10% on post than on pre
         wmax = 4e-8  # S
         scale_factor = 1.27
     elif STDP_mode == "sym":
@@ -245,12 +247,12 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, seed, verbose=True, folder=No
     ''', 
     on_pre='''
     A_presyn += Ap
-    w_exc = w_exc + A_postsyn
+    w_exc = clip(w_exc + A_postsyn,0,wmax)
     x_ampa+=norm_PC_E*w_exc   
     ''',
     on_post='''
     A_postsyn += Am
-    w_exc = w_exc + A_presyn
+    w_exc = clip(w_exc + A_presyn,0,wmax)
     ''',
     delay=delay_PC_E)
     C_PC_E_STDP.connect(i=nonzero_weights[0], j=nonzero_weights[1])
@@ -264,6 +266,9 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, seed, verbose=True, folder=No
     C_PC_E_STDP.w[:]=C_PC_E.w[:]
     #C_PC_E.active=False
     #C_PC_E_STDP.active=True
+    PC_W_Index = 4000
+    C_PC_E_SM = StateMonitor(C_PC_E_STDP,'w_exc',record=C_PC_E_STDP[:,PC_W_Index])
+    #C_PC_E_SM = StateMonitor(C_PC_E_STDP[:,PC_W_Index],record=[0,1],variables="w_exc",dt=10*ms)
     if verbose:
         net.run(org_sim_len*ms, report="text")
         #net.store()
@@ -277,7 +282,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, seed, verbose=True, folder=No
         #net.store()
     
     net.remove(C_PC_E)
-    net.add(C_PC_E_STDP)
+    net.add(C_PC_E_STDP,C_PC_E_SM)
     #del C_PC_E
     print('Switched to classical STDP')
     #net = Network(PCs,BCs,MF,C_PC_MF,C_PC_E_STDP,C_PC_I,C_BC_E,C_BC_I, SM_PC,SM_BC,RM_PC,RM_BC,StateM_PC,StateM_BC)
@@ -294,6 +299,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, seed, verbose=True, folder=No
     plot_wmx(PCs_Weights_A, save_name=PCPf_name)
     plot_histogram_wmx(PCs_Weights_A, save_name=PCPf_name + '_histogram')
     plot_violin(PCs_Weights, PCs_Weights_A, save_name=PCPf_name+'_diff_org_A')
+    plot_Zoom_Weights(w=C_PC_E_SM,save_name=PCPf_name+ "_A")
     #net.restore()
     #run(3000*ms, report="text")
     if verbose:
@@ -308,6 +314,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, seed, verbose=True, folder=No
     plot_histogram_wmx(PCs_Weights_B, save_name=PCPf_name + '_histogram')
     plot_violin(PCs_Weights, PCs_Weights_B, save_name=PCPf_name+'_diff_org_B')
     plot_violin(PCs_Weights_A, PCs_Weights_B, save_name=PCPf_name+'_diff_A_B')
+    plot_Zoom_Weights(w=C_PC_E_SM,save_name=PCPf_name+ "_B")
  
     if save:
         save_vars(SM_PC, RM_PC, StateM_PC, selection, seed)
@@ -316,7 +323,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, seed, verbose=True, folder=No
 
 
 def analyse_results(SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC, seed,
-                    multiplier, linear, pklf_name, dir_name, TFR, save, verbose=True):
+                    multiplier, linear, pklf_name, dir_name, TFR, save, save_slice=False, verbose=True):
     """
     Analyses results from simulations (see `detect_oscillations.py`)
     :param SM_PC, SM_BC, RM_PC, RM_BC: Brian2 spike and rate monitors of PC and BC populations (see `run_simulation()`)
@@ -447,6 +454,7 @@ if __name__ == "__main__":
         STDP_mode = "sym"
     assert STDP_mode in ["sym", "asym"]
     save = False
+    save_slice=True
     cue = False
     verbose = True
     TFR = False

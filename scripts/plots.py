@@ -571,6 +571,26 @@ def plot_wmx(wmx, save_name):
     fig.savefig(fig_name)
     plt.close(fig)
 
+
+def plot_Zoom_Weights(w, save_name):
+    """
+    Saves figure with the weight matrix
+    :param wmx: numpy array representing the weight matrix
+    :param save_name: name of saved img
+    """
+
+    fig = plt.figure(figsize=(8, 20))
+    ax = fig.add_subplot(1, 1, 1)
+    i = ax.imshow(w.w_exc, cmap="cividis", origin="lower", interpolation="nearest")  # nS conversion
+    fig.colorbar(i)
+    ax.set_title("Synaptic weights evolution (nS)")
+    ax.set_xlabel("Time (ms)")
+    ax.set_ylabel("Index neuron")
+
+    fig_name = os.path.join(fig_dir, "%s_w_zoom.png"%save_name)
+    fig.savefig(fig_name)
+    plt.close(fig)
+
 def plot_histogram_wmx(wmx, save_name):
     """
     Saves figure with the weight matrix
