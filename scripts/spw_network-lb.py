@@ -20,10 +20,10 @@ from sympy import true
 prefs.codegen.target = "numpy"
 import matplotlib.pyplot as plt
 from helper import load_wmx, preprocess_monitors, generate_cue_spikes,\
-                   save_vars, save_PSD, save_TFR, save_LFP, save_replay_analysis,save_wmx
+                   save_vars, save_PSD, save_TFR, save_LFP, save_replay_analysis,save_wmx,save_vars_syn
 from detect_replay import replay_circular, slice_high_activity, replay_linear
 from detect_oscillations import analyse_rate, ripple_AC, ripple, gamma, calc_TFR, analyse_estimated_LFP
-from plots import plot_violin, plot_raster, plot_posterior_trajectory, plot_PSD, plot_TFR, plot_zoomed, plot_detailed, plot_LFP, set_fig_dir, plot_wmx,set_len_sim,plot_histogram_wmx, plot_Zoom_Weights
+from plots import plot_violin, plot_raster, plot_posterior_trajectory, plot_PSD, plot_TFR, plot_zoomed, plot_detailed, plot_LFP, set_fig_dir, plot_wmx,set_len_sim,plot_histogram_wmx, plot_Zoom_Weights,fig_dir
 
 base_path = os.path.sep.join(os.path.abspath("__file__").split(os.path.sep)[:-2])
 org_sim_len = 10000
@@ -136,7 +136,7 @@ dx_gaba/dt = -x_gaba/decay_BC_I : 1
 """
 
 
-def run_simulation(wmx_PC_E, STDP_mode, cue, save, seed, verbose=True, folder=None):
+def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, verbose=True, folder=None):
     """
     Sets up the network and runs simulation
     :param wmx_PC_E: np.array representing the recurrent excitatory synaptic weight matrix
@@ -186,8 +186,8 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, seed, verbose=True, folder=No
         #taup = taum = 20 * ms
         taup = 20 * ms # Windows for pre is half that of post
         taum = 20 * ms
-        Ap = 0.01
-        Am = -Ap * 1.1 # Post syn stdp stronger by 10% on post than on pre
+        Ap = 0.05
+        Am = -Ap  # Post syn stdp 
         wmax = 4e-8  # S
         scale_factor = 1.27
     elif STDP_mode == "sym":
@@ -245,15 +245,28 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, seed, verbose=True, folder=No
     dA_presyn/dt = -A_presyn/taup : 1 (event-driven)
     dA_postsyn/dt = -A_postsyn/taum : 1 (event-driven)
     ''', 
+    #on_pre='''
+    #A_presyn += Ap
+    #w_exc = clip(w_exc + A_postsyn,0,wmax)
+    #x_ampa+=norm_PC_E*w_exc   
+    #''',
+    #on_post='''
+    #A_postsyn += Am
+    #w_exc = clip(w_exc + A_presyn,0,wmax)
+    #''',
     on_pre='''
     A_presyn += Ap
     w_exc = clip(w_exc + A_postsyn,0,wmax)
-    x_ampa+=norm_PC_E*w_exc   
-    ''',
+    x_ampa=norm_PC_E*w_exc
+    '''
+    ,
     on_post='''
     A_postsyn += Am
     w_exc = clip(w_exc + A_presyn,0,wmax)
-    ''',
+    '''
+    #x_ampa=norm_PC_E*w_exc
+    #'''
+    ,
     delay=delay_PC_E)
     C_PC_E_STDP.connect(i=nonzero_weights[0], j=nonzero_weights[1])
     
@@ -263,11 +276,24 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, seed, verbose=True, folder=No
     
     #run(5000*ms,report="text")
     C_PC_E_STDP.w_exc=C_PC_E.w_exc
-    C_PC_E_STDP.w[:]=C_PC_E.w[:]
+    #C_PC_E_STDP.w[:]=C_PC_E.w[:]
     #C_PC_E.active=False
     #C_PC_E_STDP.active=True
-    PC_W_Index = 4000
-    C_PC_E_SM = StateMonitor(C_PC_E_STDP,'w_exc',record=C_PC_E_STDP[:,PC_W_Index])
+
+    # Lior Baron - Code modification
+    # This is the selection PC for detailed synaptic weight changes
+    # We need state monitor for upstream synaptic connections, spike timing for upstream synaptic connection and the monitored PC
+    # The idea is that we can show the impact of different STDP rules (Symetrics vs asymetric) during the simulation run
+    Selected_PC = nonzero_weights[1][0]
+    Selected_PC= int(Selected_PC)
+    #M_Selection = C_PC_E_STDP[:,Selected_PC]
+    M_Selection=C_PC_E_STDP.N_incoming[:Selected_PC]
+    #PC_Selection = ndarray(C_PC_E_STDP.N_incoming[:Selected_PC])
+    M_Selection=numpy.append(M_Selection,Selected_PC)
+    C_PC_E_SM = StateMonitor(C_PC_E_STDP,variables =['w_exc','w'],record=M_Selection,dt=1*ms)
+    #PC_Selection_SM = SpikeMonitor(PCs,record=M_Selection)
+    #PC_Selection_RM = PopulationRateMonitor(PCs[M_Selection])
+    
     #C_PC_E_SM = StateMonitor(C_PC_E_STDP[:,PC_W_Index],record=[0,1],variables="w_exc",dt=10*ms)
     if verbose:
         net.run(org_sim_len*ms, report="text")
@@ -282,6 +308,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, seed, verbose=True, folder=No
         #net.store()
     
     net.remove(C_PC_E)
+    #net.add(C_PC_E_STDP,C_PC_E_SM,PC_Selection_SM,PC_Selection_RM)
     net.add(C_PC_E_STDP,C_PC_E_SM)
     #del C_PC_E
     print('Switched to classical STDP')
@@ -299,7 +326,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, seed, verbose=True, folder=No
     plot_wmx(PCs_Weights_A, save_name=PCPf_name)
     plot_histogram_wmx(PCs_Weights_A, save_name=PCPf_name + '_histogram')
     plot_violin(PCs_Weights, PCs_Weights_A, save_name=PCPf_name+'_diff_org_A')
-    plot_Zoom_Weights(w=C_PC_E_SM,save_name=PCPf_name+ "_A")
+    #plot_Zoom_Weights(w=C_PC_E_SM,save_name=PCPf_name+ "_A")
     #net.restore()
     #run(3000*ms, report="text")
     if verbose:
@@ -314,10 +341,12 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, seed, verbose=True, folder=No
     plot_histogram_wmx(PCs_Weights_B, save_name=PCPf_name + '_histogram')
     plot_violin(PCs_Weights, PCs_Weights_B, save_name=PCPf_name+'_diff_org_B')
     plot_violin(PCs_Weights_A, PCs_Weights_B, save_name=PCPf_name+'_diff_A_B')
-    plot_Zoom_Weights(w=C_PC_E_SM,save_name=PCPf_name+ "_B")
+    #plot_Zoom_Weights(w=C_PC_E_SM,save_name=PCPf_name+ "_B")
  
     if save:
         save_vars(SM_PC, RM_PC, StateM_PC, selection, seed)
+    if save_slice:
+        save_vars_syn(StateM=C_PC_E_SM, folder=fig_dir, SpikeM=SM_PC, selected_pc=Selected_PC, subset = M_Selection,RateM=RM_PC)
 
     return SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC
 
@@ -382,6 +411,9 @@ def analyse_results(SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC,
         t_LFP, LFP, f_LFP, Pxx_LFP = analyse_estimated_LFP(StateM_PC, selection, slice_idx)
         plot_LFP(t_LFP, LFP, f_LFP, Pxx_LFP, multiplier_=multiplier)
 
+        if save_slice:
+            save_LFP(t_LFP, LFP, seed)
+            save_PSD(f_PC, Pxx_PC, f_BC, Pxx_BC, f_LFP, Pxx_LFP, seed)
         if save:
             save_LFP(t_LFP, LFP, seed)
             save_PSD(f_PC, Pxx_PC, f_BC, Pxx_BC, f_LFP, Pxx_LFP, seed)
@@ -474,8 +506,8 @@ if __name__ == "__main__":
         print("dir exist: " + dir_name_save)
     wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in)) * 1e9  # *1e9 nS conversion
     SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC = run_simulation(wmx_PC_E, STDP_mode, cue=cue,
-                                                                                 save=save, seed=seed, verbose=verbose, folder=dir_name_save)
+                                                                                 save=save,save_slice=save_slice, seed=seed, verbose=verbose, folder=dir_name_save)
     _ = analyse_results(SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC, seed=seed,
                         multiplier=1, linear=linear, pklf_name=PF_pklf_name, dir_name=dir_name_save, TFR=TFR,
-                        save=save, verbose=verbose)
+                        save=save,save_slice=save_slice, verbose=verbose)
     plt.show()

@@ -13,7 +13,7 @@ from brian2.units import *
 from poisson_proc import hom_poisson, get_tuning_curve_linear
 from brian2.units.allunits import *
 from brian2.units.stdunits import *
-
+#from plots import fig_dir
 base_path = os.path.sep.join(os.path.abspath("__file__").split(os.path.sep)[:-2])
 nPCs = 8000
 nBCs = 150
@@ -212,6 +212,35 @@ def save_vars(SM, RM, StateM, subset, seed, f_name="sim_vars_PC"):
     with open(pklf_name, "wb") as f:
         pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
 
+#Lior New Save for one PC and weights
+
+def save_vars_syn(SpikeM, StateM, RateM, subset, selected_pc, folder, f_name="syn_vars_PC"):
+    """
+    Saves PC pop spikes, firing rate, membrane voltage, adaptation current and PSCs
+    from a couple of recorded neurons after the simulation
+    :param SpikeM, RateM, StateM: Brian2 SpikeMonitor, PopulationRateMonitor and StateMonitor
+    :param subset: IDs of the recorded synapses
+    :param seed: random seed used to run the simulation - here used only for naming
+    :param f_name: name of saved file
+    """
+
+    spike_times, spiking_neurons, rate = preprocess_monitors(SpikeM, RateM, calc_ISI=False)
+    # get PSCs from recorded voltage and conductances (and adaptation current)
+    wexc_s, PSCs, ws = {}, {}, {}
+    for i in subset:
+        w = StateM[i].w
+        ws[i] = w/nS
+        wexc_s[i] = StateM[i].w_exc/nS
+        
+    PSCs["t"] = StateM.t_ * 1000.  # *1000 ms conversion
+
+    results = {"spike_times": spike_times, "spiking_neurons": spiking_neurons, "rate": rate,
+               "ws": ws, "PSCs": PSCs, "wexc_s": wexc_s}
+    if os.path.isdir(folder) == False:
+        os.mkdir(folder)
+    pklf_name = os.path.join(folder, "%s_%s.pkl" % (f_name, selected_pc))
+    with open(pklf_name, "wb") as f:
+        pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
 
 def save_PSD(f_PC, Pxx_PC, f_BC, Pxx_BC, f_LFP, Pxx_LFP, seed, f_name="PSD"):
     """
