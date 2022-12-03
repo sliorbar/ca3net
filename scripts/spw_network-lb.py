@@ -10,7 +10,9 @@ import sys
 import shutil
 from brian2.units.allunits import *
 from brian2.units.stdunits import *
+from brian2.utils.caching import *
 import numpy as np
+import datalayer
 import random as pyrandom
 import sqlalchemy as sql
 import pandas as pd
@@ -25,6 +27,7 @@ from detect_replay import replay_circular, slice_high_activity, replay_linear
 from detect_oscillations import analyse_rate, ripple_AC, ripple, gamma, calc_TFR, analyse_estimated_LFP
 from plots import plot_violin, plot_raster, plot_posterior_trajectory, plot_PSD, plot_TFR, plot_zoomed, plot_detailed, plot_LFP, set_fig_dir, plot_wmx,set_len_sim,plot_histogram_wmx, plot_Zoom_Weights,fig_dir
 
+#set_device('cpp_standalone', build_on_run=False)
 base_path = os.path.sep.join(os.path.abspath("__file__").split(os.path.sep)[:-2])
 org_sim_len = 10000
 first_break_sim_len = 2000
@@ -136,7 +139,7 @@ dx_gaba/dt = -x_gaba/decay_BC_I : 1
 """
 
 
-def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, verbose=True, folder=None):
+def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = None, engine=None, verbose=True, folder=None):
     """
     Sets up the network and runs simulation
     :param wmx_PC_E: np.array representing the recurrent excitatory synaptic weight matrix
@@ -184,7 +187,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, verbose=Tru
     # weight matrix used here
     if STDP_mode == "asym":
         #taup = taum = 20 * ms
-        taup = 20 * ms # Windows for pre is half that of post
+        taup = 10 * ms # Windows for pre is half that of post
         taum = 20 * ms
         Ap = 0.05
         Am = -Ap  # Post syn stdp 
@@ -240,61 +243,33 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, verbose=Tru
     plot_wmx(PCs_Weights, save_name=PCPf_name)
     plot_histogram_wmx(PCs_Weights, save_name=PCPf_name + '_histogram')
     #wmax = np.amax(C_PC_E.w[:])
-    C_PC_E_STDP = Synapses(PCs, PCs,'''
+    synapse_setup= '''
     w_exc:1
     dA_presyn/dt = -A_presyn/taup : 1 (event-driven)
     dA_postsyn/dt = -A_postsyn/taum : 1 (event-driven)
-    ''', 
-    #on_pre='''
-    #A_presyn += Ap
-    #w_exc = clip(w_exc + A_postsyn,0,wmax)
-    #x_ampa+=norm_PC_E*w_exc   
-    #''',
-    #on_post='''
-    #A_postsyn += Am
-    #w_exc = clip(w_exc + A_presyn,0,wmax)
-    #''',
-    on_pre='''
+    '''
+    on_pre_setup = '''
     A_presyn += Ap
     w_exc = clip(w_exc + A_postsyn,0,wmax)
     x_ampa=norm_PC_E*w_exc
     '''
-    ,
-    on_post='''
+    on_post_setup='''
     A_postsyn += Am
     w_exc = clip(w_exc + A_presyn,0,wmax)
     '''
-    #x_ampa=norm_PC_E*w_exc
-    #'''
-    ,
-    delay=delay_PC_E)
-    C_PC_E_STDP.connect(i=nonzero_weights[0], j=nonzero_weights[1])
-    
-    #C_PC_E_STDP.A_presyn = 0
-    #C_PC_E_STDP.A_postsyn = 0
-    #C_PC_E_STDP.active=False
-    
-    #run(5000*ms,report="text")
-    C_PC_E_STDP.w_exc=C_PC_E.w_exc
-    #C_PC_E_STDP.w[:]=C_PC_E.w[:]
-    #C_PC_E.active=False
-    #C_PC_E_STDP.active=True
-
-    # Lior Baron - Code modification
-    # This is the selection PC for detailed synaptic weight changes
-    # We need state monitor for upstream synaptic connections, spike timing for upstream synaptic connection and the monitored PC
-    # The idea is that we can show the impact of different STDP rules (Symetrics vs asymetric) during the simulation run
-    Selected_PC = nonzero_weights[1][0]
+    Selected_PC = nonzero_weights[1][1]
     Selected_PC= int(Selected_PC)
-    #M_Selection = C_PC_E_STDP[:,Selected_PC]
+    #Selected_PC= selection
+    synapse_details= 'Eq='+synapse_setup + ', on_pre=' + on_pre_setup + ', on_post=' + on_post_setup + ', Selected PC=' + str(Selected_PC) + ', Am=' + str(Am) + ', Ap=' + str(Ap) + ', taup=' + str(taup) + ', taum=' + str(taum)
+    C_PC_E_STDP = Synapses(PCs, PCs,synapse_setup, on_pre=on_pre_setup,on_post=on_post_setup,delay=delay_PC_E)
+    C_PC_E_STDP.connect(i=nonzero_weights[0], j=nonzero_weights[1])
+    C_PC_E_STDP.w_exc=C_PC_E.w_exc
+
     M_Selection=C_PC_E_STDP.N_incoming[:Selected_PC]
-    #PC_Selection = ndarray(C_PC_E_STDP.N_incoming[:Selected_PC])
     M_Selection=numpy.append(M_Selection,Selected_PC)
     C_PC_E_SM = StateMonitor(C_PC_E_STDP,variables =['w_exc','w'],record=M_Selection,dt=1*ms)
-    #PC_Selection_SM = SpikeMonitor(PCs,record=M_Selection)
-    #PC_Selection_RM = PopulationRateMonitor(PCs[M_Selection])
-    
-    #C_PC_E_SM = StateMonitor(C_PC_E_STDP[:,PC_W_Index],record=[0,1],variables="w_exc",dt=10*ms)
+    expid = datalayer.InitializeTrial(engine=engine,description=expdesc,details=synapse_details)
+    #print (queryresult)
     if verbose:
         net.run(org_sim_len*ms, report="text")
         #net.store()
@@ -333,6 +308,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, verbose=Tru
         net.run(end_sim_len*ms, report="text")
     else:
         net.run(end_sim_len*ms)
+    #device.build(directory='output', compile=True, run=True, debug=True)
     PCs_Weights_B[C_PC_E_STDP.i[:], C_PC_E_STDP.j[:]] = C_PC_E_STDP.w_exc[:]
     PCWf_name = os.path.join(folder,'PC_Weights_end')
     PCPf_name = os.path.join(folder,'PC_Weights_Diagram_end')
@@ -346,13 +322,13 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, verbose=Tru
     if save:
         save_vars(SM_PC, RM_PC, StateM_PC, selection, seed)
     if save_slice:
-        save_vars_syn(StateM=C_PC_E_SM, folder=fig_dir, SpikeM=SM_PC, selected_pc=Selected_PC, subset = M_Selection,RateM=RM_PC)
-
+        save_vars_syn(StateM=C_PC_E_SM, folder=fig_dir, SpikeM=SM_PC, selected_pc=Selected_PC, subset = M_Selection,RateM=RM_PC,engine=engine,expid=expid,offset=org_sim_len)
+    datalayer.CloseTrial(engine=engine,expid=expid)
     return SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC
 
 
 def analyse_results(SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC, seed,
-                    multiplier, linear, pklf_name, dir_name, TFR, save, save_slice=False, verbose=True):
+                    multiplier, linear, pklf_name, dir_name, TFR, save, save_slice=False, verbose=False):
     """
     Analyses results from simulations (see `detect_oscillations.py`)
     :param SM_PC, SM_BC, RM_PC, RM_BC: Brian2 spike and rate monitors of PC and BC populations (see `run_simulation()`)
@@ -505,9 +481,12 @@ if __name__ == "__main__":
         os.mkdir(dir_name_save)
         print("dir exist: " + dir_name_save)
     wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in)) * 1e9  # *1e9 nS conversion
+    #brian2.__init__
+    engine = datalayer.InitializeSQLEngine()
     SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC = run_simulation(wmx_PC_E, STDP_mode, cue=cue,
-                                                                                 save=save,save_slice=save_slice, seed=seed, verbose=verbose, folder=dir_name_save)
+                                                                                 save=save,save_slice=save_slice,expdesc=FolderDescription, engine=engine, seed=seed, verbose=verbose, folder=dir_name_save)
     _ = analyse_results(SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC, seed=seed,
                         multiplier=1, linear=linear, pklf_name=PF_pklf_name, dir_name=dir_name_save, TFR=TFR,
                         save=save,save_slice=save_slice, verbose=verbose)
+    device.delete(code=False)
     plt.show()

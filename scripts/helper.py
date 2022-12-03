@@ -10,9 +10,13 @@ from copy import deepcopy
 import numpy as np
 import pywt
 from brian2.units import *
+from sympy import true
 from poisson_proc import hom_poisson, get_tuning_curve_linear
 from brian2.units.allunits import *
 from brian2.units.stdunits import *
+from pandas import DataFrame as df
+import datalayer
+
 #from plots import fig_dir
 base_path = os.path.sep.join(os.path.abspath("__file__").split(os.path.sep)[:-2])
 nPCs = 8000
@@ -214,7 +218,7 @@ def save_vars(SM, RM, StateM, subset, seed, f_name="sim_vars_PC"):
 
 #Lior New Save for one PC and weights
 
-def save_vars_syn(SpikeM, StateM, RateM, subset, selected_pc, folder, f_name="syn_vars_PC"):
+def save_vars_syn(SpikeM, StateM, RateM, subset, selected_pc, folder, f_name="syn_vars_PC", offset=0, engine=None,expid=None):
     """
     Saves PC pop spikes, firing rate, membrane voltage, adaptation current and PSCs
     from a couple of recorded neurons after the simulation
@@ -229,10 +233,20 @@ def save_vars_syn(SpikeM, StateM, RateM, subset, selected_pc, folder, f_name="sy
     wexc_s, PSCs, ws = {}, {}, {}
     for i in subset:
         w = StateM[i].w
-        ws[i] = w/nS
-        wexc_s[i] = StateM[i].w_exc/nS
+        ws[i] = w
+        wexc_s[i] = StateM[i].w_exc
         
-    PSCs["t"] = StateM.t_ * 1000.  # *1000 ms conversion
+    #PSCs["t"] = SpikeM.t_ * 1000.  # *1000 ms conversion
+    #PSCs["PC"] = SpikeM.i
+    PSCs["t"] = spike_times  # *1000 ms conversion
+    PSCs["PC"] = spiking_neurons
+
+    #datalayer.SaveTrial(engine=engine,data=ws,tablename='ws',expid=expid,selected_pc=selected_pc, unpivot=True)
+    datalayer.SaveTrial(engine=engine,data=spike_times,tablename='spike_times',expid=expid)
+    datalayer.SaveTrial(engine=engine,data=spiking_neurons,tablename='spiking_neurons',expid=expid)
+    datalayer.SaveTrial(engine=engine,data=rate,tablename='rate',expid=expid)
+    datalayer.SaveTrial(engine=engine,data=PSCs,tablename='PSCs',expid=expid)
+    datalayer.SaveTrial(engine=engine,data=wexc_s,tablename='wexc_s',expid=expid,selected_pc=selected_pc,unpivot=True, offset=offset)
 
     results = {"spike_times": spike_times, "spiking_neurons": spiking_neurons, "rate": rate,
                "ws": ws, "PSCs": PSCs, "wexc_s": wexc_s}
