@@ -218,7 +218,7 @@ def save_vars(SM, RM, StateM, subset, seed, f_name="sim_vars_PC"):
 
 #Lior New Save for one PC and weights
 
-def save_vars_syn(SpikeM, StateM, RateM, subset, selected_pc, folder, f_name="syn_vars_PC", offset=0, engine=None,expid=None):
+def save_vars_syn(SpikeM, StateM, RateM, subset, selected_pc, folder, f_name="syn_vars_PC", offset=0, engine=None,expid=None,runType=None,synapses=None):
     """
     Saves PC pop spikes, firing rate, membrane voltage, adaptation current and PSCs
     from a couple of recorded neurons after the simulation
@@ -230,14 +230,30 @@ def save_vars_syn(SpikeM, StateM, RateM, subset, selected_pc, folder, f_name="sy
 
     spike_times, spiking_neurons, rate = preprocess_monitors(SpikeM, RateM, calc_ISI=False)
     # get PSCs from recorded voltage and conductances (and adaptation current)
-    wexc_s, PSCs, ws = {}, {}, {}
+    wexc_s, PSCs, ws, Apresyn, Apostsyn, SynTime = {}, {}, {}, {}, {}, {}
+    dfIndex=StateM.t_ * 1000
     for i in subset:
-        w = StateM[i].w
-        ws[i] = w
+        arr = StateM[synapses[i,selected_pc]].w_exc
+        wexc_s[i] = arr.flatten()
+    #wexc_s=StateM.w_exc
+    #if runType != "org":
+    #        Apresyn = StateM[synapses[:,selected_pc]].Apresyn
+    #        Apostsyn= StateM[synapses[:,selected_pc]].Apostsyn
+    #SynTime = StateM[synapses[:,selected_pc]].t_*1000
+    #wexc_s["time_ms"] = StateM.t_ * 1000
+    #wexc_s["time_ms"] = int(wexc_s["time_ms"])
+    '''
+    for i in subset:
+        #w = StateM[i].w
+        #ws[i] = w
         wexc_s[i] = StateM[i].w_exc
-        
-    #PSCs["t"] = SpikeM.t_ * 1000.  # *1000 ms conversion
-    #PSCs["PC"] = SpikeM.i
+        if runType != "org":
+            Apresyn[i] = StateM[i].Apresyn
+            Apostsyn[i] = StateM[i].Apostsyn
+        SynTime[i] = StateM[i].t_ * 1000
+    ''' 
+    PSCs["t"] = SpikeM.t_ * 1000.  # *1000 ms conversion
+    PSCs["PC"] = SpikeM.i
     PSCs["t"] = spike_times  # *1000 ms conversion
     PSCs["PC"] = spiking_neurons
 
@@ -246,8 +262,12 @@ def save_vars_syn(SpikeM, StateM, RateM, subset, selected_pc, folder, f_name="sy
     datalayer.SaveTrial(engine=engine,data=spiking_neurons,tablename='spiking_neurons',expid=expid)
     datalayer.SaveTrial(engine=engine,data=rate,tablename='rate',expid=expid)
     datalayer.SaveTrial(engine=engine,data=PSCs,tablename='PSCs',expid=expid)
-    datalayer.SaveTrial(engine=engine,data=wexc_s,tablename='wexc_s',expid=expid,selected_pc=selected_pc,unpivot=True, offset=offset)
-
+    datalayer.SaveTrial(engine=engine,data=wexc_s,tablename='wexc_s',expid=expid,selected_pc=selected_pc,unpivot=True, offset=offset,dfIndex=dfIndex)
+    #datalayer.SaveTrial(engine=engine,data=wexc_s,tablename='wexc_s_raw',expid=expid)
+    #if runType != "org":
+        #datalayer.SaveTrial(engine=engine,data=Apostsyn,tablename='Apostsyn_raw',expid=expid)
+        #datalayer.SaveTrial(engine=engine,data=Apresyn,tablename='Apresyn_raw',expid=expid)
+    #datalayer.SaveTrial(engine=engine,data=SynTime,tablename='SynTime',expid=expid)
     results = {"spike_times": spike_times, "spiking_neurons": spiking_neurons, "rate": rate,
                "ws": ws, "PSCs": PSCs, "wexc_s": wexc_s}
     if os.path.isdir(folder) == False:

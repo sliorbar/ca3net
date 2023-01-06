@@ -26,12 +26,12 @@ from helper import load_wmx, preprocess_monitors, generate_cue_spikes,\
 from detect_replay import replay_circular, slice_high_activity, replay_linear
 from detect_oscillations import analyse_rate, ripple_AC, ripple, gamma, calc_TFR, analyse_estimated_LFP
 from plots import plot_violin, plot_raster, plot_posterior_trajectory, plot_PSD, plot_TFR, plot_zoomed, plot_detailed, plot_LFP, set_fig_dir, plot_wmx,set_len_sim,plot_histogram_wmx, plot_Zoom_Weights,fig_dir
-
 #set_device('cpp_standalone', build_on_run=False)
 base_path = os.path.sep.join(os.path.abspath("__file__").split(os.path.sep)[:-2])
-org_sim_len = 10000
-first_break_sim_len = 2000
-end_sim_len = 18000
+RunType = "org"
+org_sim_len = 3000
+first_break_sim_len = 4000
+end_sim_len = 13000
 total_sim_len=org_sim_len+first_break_sim_len+end_sim_len
 # population size
 nPCs = 8000
@@ -187,11 +187,11 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     # weight matrix used here
     if STDP_mode == "asym":
         #taup = taum = 20 * ms
-        taup = 10 * ms # Windows for pre is half that of post
+        taup = 20 * ms # Making the window the same
         taum = 20 * ms
-        Ap = 0.05
+        Ap = 0.01
         Am = -Ap  # Post syn stdp 
-        wmax = 4e-8  # S
+        #wmax = 2e-8  # S
         scale_factor = 1.27
     elif STDP_mode == "sym":
         taup = taum = 62.5 * ms
@@ -200,8 +200,12 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
         scale_factor = 0.62
     wmax = np.amax(wmx_PC_E)
     Ap *= wmax
-    Am *= wmax  
+    Am *= wmax 
+    #To align with code in Brian2 documentation (https://brian2.readthedocs.io/en/latest/examples/frompapers.Izhikevich_2007.html?highlight=stdp#example-izhikevich-2007)
+    dApresyn = Ap
+    dApostsyn = Am 
 
+    #C_PC_E = Synapses(PCs, PCs, "w_exc:1",  on_pre="x_ampa+=0", delay=delay_PC_E)
     C_PC_E = Synapses(PCs, PCs, "w_exc:1", on_pre="x_ampa+=norm_PC_E*w_exc", delay=delay_PC_E)
     nonzero_weights = np.nonzero(wmx_PC_E)
     C_PC_E.connect(i=nonzero_weights[0], j=nonzero_weights[1])
@@ -226,7 +230,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     StateM_PC = StateMonitor(PCs, variables=["vm", "w", "g_ampa", "g_ampaMF", "g_gaba"], record=selection.tolist(), dt=0.1*ms)
     StateM_BC = StateMonitor(BCs, "vm", record=[nBCs/2], dt=0.1*ms)
 
-    net = Network(PCs,BCs,MF,C_PC_MF,C_PC_E,C_PC_I,C_BC_E,C_BC_I, SM_PC,SM_BC,RM_PC,RM_BC,StateM_PC,StateM_BC)
+    
     PCs_Weights = np.zeros((nPCs, nPCs))
     PCs_Weights_A = np.zeros((nPCs, nPCs))
     PCs_Weights_B = np.zeros((nPCs, nPCs))
@@ -240,22 +244,28 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     PCWf_name = os.path.join(folder,'PC_Weights_before')
     PCPf_name = os.path.join(folder,'PC_Weights_Diagram_before')
     #save_wmx(PCs_Weights, PCWf_name)
-    plot_wmx(PCs_Weights, save_name=PCPf_name)
-    plot_histogram_wmx(PCs_Weights, save_name=PCPf_name + '_histogram')
+    #plot_wmx(PCs_Weights, save_name=PCPf_name)
+    #plot_histogram_wmx(PCs_Weights, save_name=PCPf_name + '_histogram')
     #wmax = np.amax(C_PC_E.w[:])
-    synapse_setup= '''
+    #synapse_setup= 
+    '''
     w_exc:1
-    dA_presyn/dt = -A_presyn/taup : 1 (event-driven)
-    dA_postsyn/dt = -A_postsyn/taum : 1 (event-driven)
     '''
+    synapse_setup='''
+    w_exc:1
+    dApresyn/dt = -Apresyn/taup : 1 (event-driven)
+    dApostsyn/dt = -Apostsyn/taum : 1 (event-driven)
+    '''
+    #(event-driven)
     on_pre_setup = '''
-    A_presyn += Ap
-    w_exc = clip(w_exc + A_postsyn,0,wmax)
-    x_ampa=norm_PC_E*w_exc
+    x_ampa+=norm_PC_E*w_exc
+    Apresyn += dApresyn
+    w_exc = clip(w_exc + Apostsyn,0,wmax)
     '''
-    on_post_setup='''
-    A_postsyn += Am
-    w_exc = clip(w_exc + A_presyn,0,wmax)
+    
+    on_post_setup= '''
+    Apostsyn += dApostsyn
+    w_exc = clip(w_exc + Apresyn,0,wmax)
     '''
     Selected_PC = nonzero_weights[1][1]
     Selected_PC= int(Selected_PC)
@@ -263,13 +273,26 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     synapse_details= 'Eq='+synapse_setup + ', on_pre=' + on_pre_setup + ', on_post=' + on_post_setup + ', Selected PC=' + str(Selected_PC) + ', Am=' + str(Am) + ', Ap=' + str(Ap) + ', taup=' + str(taup) + ', taum=' + str(taum)
     C_PC_E_STDP = Synapses(PCs, PCs,synapse_setup, on_pre=on_pre_setup,on_post=on_post_setup,delay=delay_PC_E)
     C_PC_E_STDP.connect(i=nonzero_weights[0], j=nonzero_weights[1])
-    C_PC_E_STDP.w_exc=C_PC_E.w_exc
-
-    M_Selection=C_PC_E_STDP.N_incoming[:Selected_PC]
-    M_Selection=numpy.append(M_Selection,Selected_PC)
-    C_PC_E_SM = StateMonitor(C_PC_E_STDP,variables =['w_exc','w'],record=M_Selection,dt=1*ms)
+    C_PC_E_STDP.w_exc= wmx_PC_E[nonzero_weights].flatten()
+    #M_Selection=C_PC_E_STDP.i[:,Selected_PC]
+    syn_slice = C_PC_E_STDP.i[:,Selected_PC]
+    if syn_slice.size > 20:
+        syn_slice=syn_slice[:20]
+        #syn_slice = numpy.append(syn_slice,Selected_PC)
+    #M_Selection=C_PC_E_STDP[:,Selected_PC]
+    #print (M_Selection)
+    #M_Selection=numpy.append(M_Selection,Selected_PC)
+    
     expid = datalayer.InitializeTrial(engine=engine,description=expdesc,details=synapse_details)
     #print (queryresult)
+    if RunType == "org":
+        #C_PC_E_SM = StateMonitor(C_PC_E,variables =['w_exc'],record=C_PC_E_STDP[:,Selected_PC],dt=1*ms)
+        C_PC_E_SM = StateMonitor(C_PC_E,variables =['w_exc'],record=C_PC_E_SM[syn_slice],dt=1*ms)
+        net = Network(PCs,BCs,MF,C_PC_MF,C_PC_E,C_PC_I,C_BC_E,C_BC_I, SM_PC,SM_BC,RM_PC,RM_BC,C_PC_E_SM,StateM_PC,StateM_BC)
+    else:
+        #SM_PC_Sel = SpikeMonitor(PCs[:,Selected_PC])
+        C_PC_E_SM = StateMonitor(C_PC_E_STDP,variables =['w_exc','Apostsyn','Apresyn'],record=C_PC_E_STDP[:,Selected_PC],dt=1*ms)
+        net = Network(PCs,BCs,MF,C_PC_MF,C_PC_E_STDP,C_PC_I,C_BC_E,C_BC_I, SM_PC,SM_BC,RM_PC,RM_BC,C_PC_E_SM,StateM_PC,StateM_BC)
     if verbose:
         net.run(org_sim_len*ms, report="text")
         #net.store()
@@ -282,11 +305,11 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
         net.run(org_sim_len*ms)
         #net.store()
     
-    net.remove(C_PC_E)
+    #net.remove(C_PC_E)
     #net.add(C_PC_E_STDP,C_PC_E_SM,PC_Selection_SM,PC_Selection_RM)
-    net.add(C_PC_E_STDP,C_PC_E_SM)
+    #net.add(C_PC_E_STDP,C_PC_E_SM)
     #del C_PC_E
-    print('Switched to classical STDP')
+    #print('Switched to classical STDP')
     #net = Network(PCs,BCs,MF,C_PC_MF,C_PC_E_STDP,C_PC_I,C_BC_E,C_BC_I, SM_PC,SM_BC,RM_PC,RM_BC,StateM_PC,StateM_BC)
     #run(2000*ms,report="text")
     #net.store()
@@ -297,7 +320,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     PCs_Weights_A[C_PC_E_STDP.i[:], C_PC_E_STDP.j[:]] = C_PC_E_STDP.w_exc[:]
     PCWf_name = os.path.join(folder,'PC_Weights_Mid')
     PCPf_name = os.path.join(folder,'PC_Weights_Diagram_Mid')
-    #save_wmx(PCs_Weights, PCWf_name)
+    save_wmx(PCs_Weights, PCWf_name)
     plot_wmx(PCs_Weights_A, save_name=PCPf_name)
     plot_histogram_wmx(PCs_Weights_A, save_name=PCPf_name + '_histogram')
     plot_violin(PCs_Weights, PCs_Weights_A, save_name=PCPf_name+'_diff_org_A')
@@ -314,15 +337,15 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     PCPf_name = os.path.join(folder,'PC_Weights_Diagram_end')
     #save_wmx(PCs_Weights, PCWf_name)
     plot_wmx(PCs_Weights_B, save_name=PCPf_name)
-    plot_histogram_wmx(PCs_Weights_B, save_name=PCPf_name + '_histogram')
-    plot_violin(PCs_Weights, PCs_Weights_B, save_name=PCPf_name+'_diff_org_B')
-    plot_violin(PCs_Weights_A, PCs_Weights_B, save_name=PCPf_name+'_diff_A_B')
+    #plot_histogram_wmx(PCs_Weights_B, save_name=PCPf_name + '_histogram')
+    #plot_violin(PCs_Weights, PCs_Weights_B, save_name=PCPf_name+'_diff_org_B')
+    #plot_violin(PCs_Weights_A, PCs_Weights_B, save_name=PCPf_name+'_diff_A_B')
     #plot_Zoom_Weights(w=C_PC_E_SM,save_name=PCPf_name+ "_B")
  
     if save:
         save_vars(SM_PC, RM_PC, StateM_PC, selection, seed)
     if save_slice:
-        save_vars_syn(StateM=C_PC_E_SM, folder=fig_dir, SpikeM=SM_PC, selected_pc=Selected_PC, subset = M_Selection,RateM=RM_PC,engine=engine,expid=expid,offset=org_sim_len)
+        save_vars_syn(StateM=C_PC_E_SM, folder=fig_dir, SpikeM=SM_PC, selected_pc=Selected_PC, subset = syn_slice ,RateM=RM_PC,engine=engine,expid=expid,offset=0,runType=RunType,synapses=C_PC_E_STDP)
     datalayer.CloseTrial(engine=engine,expid=expid)
     return SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC
 
@@ -362,25 +385,27 @@ def analyse_results(SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC,
             replay, _ = replay_circular(ISI_hist_PC[replay_ROI])
         else:
             slice_idx = slice_high_activity(rate_PC, th=2, min_len=260)
-            plot_raster(spike_times_PC, spiking_neurons_PC, rate_PC, [ISI_hist_PC, bin_edges_PC], slice_idx, "blue",
-                        multiplier_=multiplier)
             replay, replay_results = replay_linear(spike_times_PC, spiking_neurons_PC, slice_idx, pklf_name, N=30)
+            '''
             if slice_idx:
                 if os.path.isdir(dir_name):
-#                    shutil.rmtree(dir_name)
-#                    os.mkdir(dir_name)
+                    shutil.rmtree(dir_name)
+                    os.mkdir(dir_name)
                     print('Directory Exists')
 
                 else:
                     os.mkdir(dir_name)
-                for bounds, tmp in replay_results.items():
-                    fig_name = os.path.join(dir_name, "%i-%i_replay.png" % (bounds[0], bounds[1]))
-                    plot_posterior_trajectory(tmp["X_posterior"], tmp["fitted_path"], tmp["R"], fig_name)
+            '''
+            for bounds, tmp in replay_results.items():
+                fig_name = os.path.join(dir_name, "%i-%i_replay.png" % (bounds[0], bounds[1]))
+                plot_posterior_trajectory(tmp["X_posterior"], tmp["fitted_path"], tmp["R"], fig_name)
             if save:
                 save_replay_analysis(replay, replay_results, seed)
 
         mean_rate_PC, rate_ac_PC, max_ac_PC, t_max_ac_PC, f_PC, Pxx_PC = analyse_rate(rate_PC, 1000., slice_idx)
         mean_rate_BC, rate_ac_BC, max_ac_BC, t_max_ac_BC, f_BC, Pxx_BC = analyse_rate(rate_BC, 1000., slice_idx)
+        plot_raster(spike_times_PC, spiking_neurons_PC, rate_PC, [ISI_hist_PC, bin_edges_PC], slice_idx, "blue",
+                        multiplier_=multiplier)
         plot_PSD(rate_PC, rate_ac_PC, f_PC, Pxx_PC, "PC_population", "blue", multiplier_=multiplier)
         plot_PSD(rate_BC, rate_ac_BC, f_BC, Pxx_BC, "BC_population", "green", multiplier_=multiplier)
 
@@ -458,9 +483,12 @@ if __name__ == "__main__":
         STDP_mode = sys.argv[1]
         STDP_mode_Input = sys.argv[2]
         FolderDescription = sys.argv[3]
+        RunT = sys.argv[4]
     except:
         STDP_mode = "sym"
     assert STDP_mode in ["sym", "asym"]
+    assert RunT in ["org", "alt"]
+    RunType = RunT
     save = False
     save_slice=True
     cue = False
@@ -481,6 +509,7 @@ if __name__ == "__main__":
         os.mkdir(dir_name_save)
         print("dir exist: " + dir_name_save)
     wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in)) * 1e9  # *1e9 nS conversion
+    #wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in)) * 1e9  # *1e9 nS conversion
     #brian2.__init__
     engine = datalayer.InitializeSQLEngine()
     SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC = run_simulation(wmx_PC_E, STDP_mode, cue=cue,

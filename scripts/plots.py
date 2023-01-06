@@ -402,7 +402,8 @@ def plot_LFP(t, LFP, f, Pxx, multiplier_):
             Pxx_plot[i, :] = 10 * np.log10(Pxx[i, :] / max(Pxx[i, :]))
         Pxx_plot_mean = np.mean(Pxx_plot, axis=0)
     except:
-        Pxx_plot_mean = 10 * np.log10(Pxx / max(Pxx))
+        return        
+        #Pxx_plot_mean = 10 * np.log10(Pxx / max(Pxx))
 
     f_ripple = f[np.where((150 < f) & (f < 220))]; Pxx_ripple_plot = Pxx_plot_mean[np.where((150 < f) & (f < 220))]
     f_gamma = f[np.where((30 < f) & (f < 100))]; Pxx_gamma_plot = Pxx_plot_mean[np.where((30 < f) & (f < 100))]

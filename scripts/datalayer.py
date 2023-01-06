@@ -33,24 +33,34 @@ def InitializeTrial(engine,description,details='test'):
     return result
 
 
-def SaveTrial(engine,data, tablename,expid, selected_pc = None,unpivot=False, offset=0):
+def SaveTrial(engine,data, tablename,expid, selected_pc = None,unpivot=False, offset=0, dfIndex=None):
     """
     Create a new entry to log experiment data
     """
     #engine1 = InitializeSQLEngine()
     
-        
-    savedata = df(data)
+    
     if unpivot:
-        
+        savedata = df(data,index=dfIndex)
         savedata=savedata.melt(ignore_index=False)
+        #savedata=savedata.melt(ignore_index=False,id_vars='time_ms')
         savedata=savedata.rename(columns={'variable':'InputFromPC'})
+        savedata.sort_index(inplace=True)
         savedata = savedata.drop_duplicates(subset = {'InputFromPC','value'})
         savedata['SelectedPC']=selected_pc
         savedata['offset'] = offset
-    conn = engine.connect()
-    savedata['expid'] = expid
+        #savedata['time_ms'] = savedata['time_ms'].astype('string')
+        #savedata=savedata.astype({'time_ms': 'float'})
+        #savedata.fillna(0,inplace=True)
     
+    #savedata['SelectedPC']=selected_pc
+    else:
+        savedata = df(data)
+    if savedata.columns.size > 100:
+        savedata=savedata.iloc[:,0:100]
+
+    savedata['expid'] = expid
+    conn = engine.connect()
     savedata.to_sql(name=tablename,con=conn,if_exists='append')
     conn.close()
 
