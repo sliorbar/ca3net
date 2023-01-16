@@ -139,7 +139,7 @@ dx_gaba/dt = -x_gaba/decay_BC_I : 1
 """
 
 
-def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = None, engine=None, verbose=True, folder=None):
+def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = None, engine=None, verbose=True, folder=None, expid=None):
     """
     Sets up the network and runs simulation
     :param wmx_PC_E: np.array representing the recurrent excitatory synaptic weight matrix
@@ -187,8 +187,8 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     # weight matrix used here
     if STDP_mode == "asym":
         #taup = taum = 20 * ms
-        taup = 20 * ms # Making the window the same
-        taum = 20 * ms
+        taup = 5 * ms # Making the window the same
+        taum = 5 * ms
         Ap = 0.01
         Am = -Ap  # Post syn stdp 
         #wmax = 2e-8  # S
@@ -283,7 +283,8 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     #print (M_Selection)
     #M_Selection=numpy.append(M_Selection,Selected_PC)
     
-    expid = datalayer.InitializeTrial(engine=engine,description=expdesc,details=synapse_details)
+    datalayer.UpdateTrial(engine=engine,description=expdesc,details=synapse_details,expid=expid)
+    
     #print (queryresult)
     if RunType == "org":
         #C_PC_E_SM = StateMonitor(C_PC_E,variables =['w_exc'],record=C_PC_E_STDP[:,Selected_PC],dt=1*ms)
@@ -497,7 +498,9 @@ if __name__ == "__main__":
     linear = True
     place_cell_ratio = 0.5
     seed = 12345
-
+    engine = datalayer.InitializeSQLEngine()
+    expid = datalayer.InitializeTrial(engine=engine,description='temp desc',details='temp detail')
+    FolderDescription = str(expid) + '-' + FolderDescription
     #f_in = "wmx_%s_%.1f_2envs_linear.pkl"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
     f_in = "wmx_%s_%.1f_linear.pkl"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
     PF_pklf_name = os.path.join(base_path, "files", "PFstarts_%s_linear.pkl" % place_cell_ratio) if linear else None
@@ -513,7 +516,7 @@ if __name__ == "__main__":
     #brian2.__init__
     engine = datalayer.InitializeSQLEngine()
     SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC = run_simulation(wmx_PC_E, STDP_mode, cue=cue,
-                                                                                 save=save,save_slice=save_slice,expdesc=FolderDescription, engine=engine, seed=seed, verbose=verbose, folder=dir_name_save)
+                                                                                 save=save,save_slice=save_slice,expdesc=FolderDescription, engine=engine, seed=seed, verbose=verbose, folder=dir_name_save,expid=expid)
     _ = analyse_results(SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC, seed=seed,
                         multiplier=1, linear=linear, pklf_name=PF_pklf_name, dir_name=dir_name_save, TFR=TFR,
                         save=save,save_slice=save_slice, verbose=verbose)

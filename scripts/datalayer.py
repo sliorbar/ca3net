@@ -32,6 +32,21 @@ def InitializeTrial(engine,description,details='test'):
         conn.close()
     return result
 
+def UpdateTrial(engine,expid, description,details='test'):
+    """
+    Create a new entry to log experiment data
+    """
+    #engine1 = InitializeSQLEngine()
+    from sqlalchemy import text
+    #dateTimeObj = datetime.datetime.now()
+    #dateTimeObj=dateTimeObj.replace(microsecond=0)
+    querytext = "update Experiments set Description='%s',  [Param JSON] = '%s' where id=%s" % (description,details,expid)
+    #expridtext = "Select ID from Experiments where [Start Timestamp] ='%s'" % dateTimeObj
+    with engine.connect() as conn:
+        conn.execute(text(querytext))
+        #query_result = conn.execute(text(expridtext))
+        conn.close()
+    return 
 
 def SaveTrial(engine,data, tablename,expid, selected_pc = None,unpivot=False, offset=0, dfIndex=None):
     """
