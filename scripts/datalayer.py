@@ -10,7 +10,7 @@ def InitializeSQLEngine():
     Create a new instance of sql engine to log experiment data
     """
 
-    engine = create_engine("mssql+pyodbc://lior_cuny:!CUNEWyork2018@CUNY")
+    engine = create_engine("mssql+pyodbc://lior_cuny:!CUNEWyork2019@CUNY")
     return engine
 
 def InitializeTrial(engine,description,details='test'):
@@ -68,12 +68,12 @@ def SaveTrial(engine,data, tablename,expid, selected_pc = None,unpivot=False, of
         #savedata=savedata.astype({'time_ms': 'float'})
         #savedata.fillna(0,inplace=True)
     
-    #savedata['SelectedPC']=selected_pc
+    
     else:
         savedata = df(data)
     if savedata.columns.size > 100:
         savedata=savedata.iloc[:,0:100]
-
+    savedata['SelectedPC']=selected_pc
     savedata['expid'] = expid
     conn = engine.connect()
     savedata.to_sql(name=tablename,con=conn,if_exists='append')

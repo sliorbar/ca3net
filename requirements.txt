@@ -7,3 +7,5 @@ brian2
 bluepyopt
 PyWavelets
 tqdm
+opencv-python
+brian2cuda

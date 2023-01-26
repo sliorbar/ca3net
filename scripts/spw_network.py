@@ -251,7 +251,7 @@ def analyse_results(SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC,
             else:
                 replay, replay_results = np.nan, {}
             if slice_idx and replay_results != {}:
-                create_dir(dir_name)
+                create_dir(os.path.join(dir_name,"replays"))
                 for bounds, tmp in replay_results.items():
                     fig_name = os.path.join(dir_name, "%i-%i_replay.png" % (bounds[0], bounds[1]))
                     plot_posterior_trajectory(tmp["X_posterior"], tmp["fitted_path"], tmp["R"], fig_name)

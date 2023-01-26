@@ -396,8 +396,8 @@ def load_wmx(npzf_name):
     :param npzf_name: file name of the saved weight matrix
     :return: excitatory weight matrix
     """
-    return load_npz(npzf_name)
-
+    loadedfile= load_npz(npzf_name)
+    return loadedfile
 
 def load_spikes(pklf_name):
     """
