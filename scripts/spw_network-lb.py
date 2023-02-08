@@ -286,6 +286,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
         #M_Selection=C_PC_E_STDP.i[:,Selected_PC]
     
     if syn_slice.size > 20:
+        
         syn_slice=syn_slice[:20]
         #syn_slice = numpy.append(syn_slice,Selected_PC)
     #M_Selection=C_PC_E_STDP[:,Selected_PC]
