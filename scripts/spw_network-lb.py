@@ -33,8 +33,9 @@ base_path = os.path.sep.join(os.path.abspath("__file__").split(os.path.sep)[:-2]
 RunType = "org"
 org_sim_len = 3000
 first_break_sim_len = 4000
-end_sim_len = 13000
+end_sim_len = 3000
 total_sim_len=org_sim_len+first_break_sim_len+end_sim_len
+Selected_PC_Index=0
 # population size
 nPCs = 8000
 nBCs = 150
@@ -189,8 +190,8 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     # weight matrix used here
     if STDP_mode == "asym":
         #taup = taum = 20 * ms
-        taup = 5 * ms # Making the window the same
-        taum = 5 * ms
+        taup = 20 * ms # Making the window the same
+        taum = 20 * ms
         Ap = 0.01
         Am = -Ap  # Post syn stdp 
         #wmax = 2e-8  # S
@@ -220,24 +221,26 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     Apresyn += dApresyn
     w_exc = clip(w_exc + Apostsyn,0,wmax)
     '''
-    
     on_post_setup= '''
     Apostsyn += dApostsyn
     w_exc = clip(w_exc + Apresyn,0,wmax)
     '''
-    Selected_PC = wmx_PC_E.row[0]
-    Selected_PC= int(Selected_PC)
+          
+    #Selected_PC = wmx_PC_E.row[Selected_PC_Index]
+    #Selected_PC= int(Selected_PC)
     #Selected_PC= selection
+    #Selected_PC_Index = int(Selected_PC_Index)
     PCs_Weights = np.zeros((nPCs, nPCs))
     PCs_Weights_A = np.zeros((nPCs, nPCs))
     PCs_Weights_B = np.zeros((nPCs, nPCs))
-    synapse_details= 'Eq='+synapse_setup + ', on_pre=' + on_pre_setup + ', on_post=' + on_post_setup + ', Selected PC=' + str(Selected_PC) + ', Am=' + str(Am) + ', Ap=' + str(Ap) + ', taup=' + str(taup) + ', taum=' + str(taum)
+    
     if RunType == "org":
         C_PC_E = Synapses(PCs, PCs, "w_exc:1", on_pre="x_ampa+=norm_PC_E*w_exc", delay=delay_PC_E)
         C_PC_E.connect(i=wmx_PC_E.row, j=wmx_PC_E.col)
         C_PC_E.w_exc = wmx_PC_E.data
         #PCs_Weights[C_PC_E.i[:], C_PC_E.j[:]] = C_PC_E.w_exc[:]
-        syn_slice = C_PC_E.i[:,Selected_PC]
+        #syn_slice = C_PC_E.i[:,Selected_PC]
+        Selected_PC = C_PC_E.i[Selected_PC_Index]
     
     else:
    
@@ -245,7 +248,16 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
         C_PC_E_STDP.connect(i=wmx_PC_E.row, j=wmx_PC_E.col)
         C_PC_E_STDP.w_exc= wmx_PC_E.data
         #PCs_Weights[C_PC_E_STDP.i[:], C_PC_E_STDP.j[:]] = C_PC_E_STDP.w_exc[:]
-        syn_slice = C_PC_E_STDP.i[:,Selected_PC]
+        #syn_slice = C_PC_E_STDP.i[:,Selected_PC]
+        if Selected_PC_Index < 0:
+            pc_sel = C_PC_E_STDP.i[:]
+            Selected_PC = np.random.choice(pc_sel)
+        else:
+            Selected_PC = C_PC_E_STDP.i[Selected_PC_Index]
+        
+    synapse_details= 'Eq='+synapse_setup + ', on_pre=' + on_pre_setup + ', on_post=' + on_post_setup + ', Selected PC=' + str(Selected_PC) + ', Am=' + str(Am) + ', Ap=' + str(Ap) + ', taup=' + str(taup) + ', taum=' + str(taum)
+
+        
 
     C_PC_I = Synapses(BCs, PCs, on_pre="x_gaba+=norm_PC_I*w_PC_I", delay=delay_PC_I)
     C_PC_I.connect(p=connection_prob_BC)
@@ -264,7 +276,23 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     selection = np.arange(0, nPCs, 20)   # subset of neurons for recoring variables
     StateM_PC = StateMonitor(PCs, variables=["vm", "w", "g_ampa", "g_ampaMF", "g_gaba"], record=selection.tolist(), dt=0.1*ms)
     StateM_BC = StateMonitor(BCs, "vm", record=[nBCs/2], dt=0.1*ms)
-
+    #detailed_selection = np.random.choice(selection,size=1) #Select 20 target neurons from already selected indices
+    detailed_selection=Selected_PC
+    syn_slice = {}
+    matrix_df = pd.DataFrame.sparse.from_spmatrix(wmx_PC_E)
+    unpivot = matrix_df.melt(ignore_index=False)
+    non_zero = unpivot[unpivot.value > 0]
+    sortedframe = non_zero.sort_values(by=['value'],ascending=False,inplace=False)
+    upstream_neurons = np.array([],dtype=int32)
+    if RunType == "org":
+        syn_slice = C_PC_E.i[:,detailed_selection]
+    else:
+        for target_pc in [detailed_selection]:
+            upstream_pcs=sortedframe.loc[target_pc,:].head(50) #50 synapses with largest value to track for the target PCs
+            #syn_slice[target_pc] = upstream_pcs.variable.values
+            syn_slice = upstream_pcs.variable.values
+            upstream_neurons = np.append(upstream_neurons, np.array(upstream_pcs.variable.values))
+        
     
     
     #PCWf_name = os.path.join(folder,'PC_Weights_baseline')
@@ -273,6 +301,10 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     #plot_wmx(PCs_Weights, save_name=PCPf_name)
     
     #PCs_Weights[C_PC_E.i[:], C_PC_E.j[:]] = C_PC_E.w_exc[:]
+    upstream_neurons = np.unique(upstream_neurons)
+    upstream_neurons = np.sort(upstream_neurons)
+    #upstream_neurons = upstream_neurons.tolist()
+    #upstream_neurons = ndarray()
     PCWf_name = os.path.join(folder,'PC_Weights_before')
     PCPf_name = os.path.join(folder,'PC_Weights_Diagram_before')
     #save_wmx(PCs_Weights, PCWf_name)
@@ -284,11 +316,21 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     w_exc:1
     '''
         #M_Selection=C_PC_E_STDP.i[:,Selected_PC]
-    
+    syn_slice = C_PC_E_STDP.i[:,Selected_PC]
+    s_w = C_PC_E_STDP.w_exc[:,Selected_PC]
+    subset_df = pd.DataFrame()
+    subset_df["pc"]=syn_slice
+    subset_df["value"]=s_w
+    subset_df.sort_values(by=['value'],ascending=False,inplace=True)
+    subset_df = subset_df.head(20)
+    subset_df.sort_values(by=['pc'],ascending=True,inplace=True)
+    upstream_neurons = subset_df['pc']
+
     if syn_slice.size > 20:
         
         syn_slice=syn_slice[:20]
         #syn_slice = numpy.append(syn_slice,Selected_PC)
+    syn_slice = upstream_neurons.values
     #M_Selection=C_PC_E_STDP[:,Selected_PC]
     #print (M_Selection)
     #M_Selection=numpy.append(M_Selection,Selected_PC)
@@ -304,6 +346,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     else:
         #SM_PC_Sel = SpikeMonitor(PCs[:,Selected_PC])
         #C_PC_E_SM = StateMonitor(C_PC_E_STDP,variables =['w_exc','Apostsyn','Apresyn'],record=C_PC_E_STDP[:,Selected_PC],dt=1*ms)
+        #C_PC_E_SM = StateMonitor(C_PC_E_STDP,variables =['w_exc'],record=True,dt=1*ms)
         C_PC_E_SM = StateMonitor(C_PC_E_STDP,variables =['w_exc'],record=C_PC_E_STDP[syn_slice,Selected_PC],dt=1*ms)
         net = Network(PCs,BCs,MF,C_PC_MF,C_PC_E_STDP,C_PC_I,C_BC_E,C_BC_I, SM_PC,SM_BC,RM_PC,RM_BC,C_PC_E_SM,StateM_PC,StateM_BC)
     if verbose:
@@ -361,7 +404,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     if save:
         save_vars(SM_PC, RM_PC, StateM_PC, selection, seed)
     if save_slice:
-        save_vars_syn(StateM=C_PC_E_SM, folder=fig_dir, SpikeM=SM_PC, selected_pc=Selected_PC, subset = syn_slice ,RateM=RM_PC,engine=engine,expid=expid,offset=0,runType=RunType,synapses=C_PC_E_STDP)
+        save_vars_syn(StateM=C_PC_E_SM, folder=fig_dir, SpikeM=SM_PC,SpikeM_BC = SM_BC, selected_pc=detailed_selection, subset = syn_slice ,RateM=RM_PC, RateM_BC = RM_BC,engine=engine,expid=expid,offset=0,runType=RunType,synapses=C_PC_E_STDP)
     datalayer.CloseTrial(engine=engine,expid=expid)
     return SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC
 
@@ -500,6 +543,7 @@ if __name__ == "__main__":
         STDP_mode_Input = sys.argv[2]
         FolderDescription = sys.argv[3]
         RunT = sys.argv[4]
+        Selected_PC_Index = int(sys.argv[5])
     except:
         STDP_mode = "sym"
     assert STDP_mode in ["sym", "asym"]

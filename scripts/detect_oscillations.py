@@ -38,7 +38,7 @@ def _calc_spectrum(time_series, fs, nperseg):
     return f, Pxx
 
 
-def analyse_rate(rate, fs, slice_idx=[]):
+def analyse_rate(rate, fs, slice_idx=[], duration = 10000):
     """
     Basic analysis of firing rate: autocorrelatio and PSD
     :param rate: firing rate of the neuron population
@@ -50,7 +50,7 @@ def analyse_rate(rate, fs, slice_idx=[]):
     """
 
     if slice_idx:
-        t = np.arange(0, 10000); rates = []
+        t = np.arange(0, duration); rates = []
         for bounds in slice_idx:  # iterate through sustained high activity periods
             lb = bounds[0]; ub = bounds[1]
             rates.append(rate[np.where((lb <= t) & (t < ub))[0]])

@@ -232,7 +232,7 @@ def save_vars(SM, RM, StateM, subset, seed, f_name="sim_vars_PC"):
 
 #Lior New Save for one PC and weights
 
-def save_vars_syn(SpikeM, StateM, RateM, subset, selected_pc, folder, f_name="syn_vars_PC", offset=0, engine=None,expid=None,runType=None,synapses=None):
+def save_vars_syn(SpikeM, StateM, RateM, subset, selected_pc, folder, f_name="syn_vars_PC", offset=0, engine=None,expid=None,runType=None,synapses=None, SpikeM_BC = None, RateM_BC = None):
     """
     Saves PC pop spikes, firing rate, membrane voltage, adaptation current and PSCs
     from a couple of recorded neurons after the simulation
@@ -243,12 +243,28 @@ def save_vars_syn(SpikeM, StateM, RateM, subset, selected_pc, folder, f_name="sy
     """
 
     spike_times, spiking_neurons, rate = preprocess_monitors(SpikeM, RateM, calc_ISI=False)
+    spike_times_bc, spiking_neurons_bc, rate_bc = preprocess_monitors(SpikeM_BC, RateM_BC, calc_ISI=False)
     # get PSCs from recorded voltage and conductances (and adaptation current)
     wexc_s, PSCs, ws, Apresyn, Apostsyn, SynTime = {}, {}, {}, {}, {}, {}
+    BCs = {}
     dfIndex=StateM.t_ * 1000
     for i in subset:
         arr = StateM[synapses[i,selected_pc]].w_exc
         wexc_s[i] = arr.flatten()
+    '''
+    for ind in [selected_pc]:
+        wexc_s = {}
+        for i in subset[ind]:
+            pc = int(ind)
+            upstream = int(i)
+            #test = synapses[upstream,pc]
+            #print (type(test))
+            arr = StateM[synapses[upstream,pc]].w_exc
+            #arr = StateM[synapses[:,ind]].w_exc
+            wexc_s[upstream] = arr.flatten()
+        datalayer.SaveTrial(engine=engine,data=wexc_s,tablename='wexc_s',expid=expid,selected_pc=ind,unpivot=True, offset=offset,dfIndex=dfIndex)
+    '''
+
     #wexc_s=StateM.w_exc
     #if runType != "org":
     #        Apresyn = StateM[synapses[:,selected_pc]].Apresyn
@@ -266,8 +282,8 @@ def save_vars_syn(SpikeM, StateM, RateM, subset, selected_pc, folder, f_name="sy
             Apostsyn[i] = StateM[i].Apostsyn
         SynTime[i] = StateM[i].t_ * 1000
     ''' 
-    PSCs["t"] = SpikeM.t_ * 1000.  # *1000 ms conversion
-    PSCs["PC"] = SpikeM.i
+    BCs["t"] =spike_times_bc  # *1000 ms conversion
+    BCs["BC"] = spiking_neurons_bc
     PSCs["t"] = spike_times  # *1000 ms conversion
     PSCs["PC"] = spiking_neurons
 
@@ -275,6 +291,7 @@ def save_vars_syn(SpikeM, StateM, RateM, subset, selected_pc, folder, f_name="sy
     datalayer.SaveTrial(engine=engine,data=spike_times,tablename='spike_times',expid=expid)
     datalayer.SaveTrial(engine=engine,data=spiking_neurons,tablename='spiking_neurons',expid=expid)
     datalayer.SaveTrial(engine=engine,data=rate,tablename='rate',expid=expid)
+    datalayer.SaveTrial(engine=engine,data=BCs,tablename='BCs',expid=expid)
     datalayer.SaveTrial(engine=engine,data=PSCs,tablename='PSCs',expid=expid)
     datalayer.SaveTrial(engine=engine,data=wexc_s,tablename='wexc_s',expid=expid,selected_pc=selected_pc,unpivot=True, offset=offset,dfIndex=dfIndex)
     #datalayer.SaveTrial(engine=engine,data=wexc_s,tablename='wexc_s_raw',expid=expid)
