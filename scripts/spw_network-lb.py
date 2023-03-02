@@ -91,6 +91,8 @@ delta_T_PC = 4.2340696257631 * mV
 spike_th_PC = theta_PC + 5 * delta_T_PC
 a_PC = -0.274347065652738 * nS
 b_PC = 206.841448096415 * pA
+#a_PC = 0 * nS
+#b_PC = 0 * pA
 tau_w_PC = 84.9358017225512 * ms
 """ comment this back to run with ExpIF PC model...
 # ExpIF parameters for PCs (optimized by Szabolcs)
@@ -119,6 +121,8 @@ delta_T_BC = 4.58413312063091 * mV
 spike_th_BC = theta_BC + 5 * delta_T_BC
 a_BC = 3.05640210724374 * nS
 b_BC = 0.916098931234532 * pA
+#a_BC = 0 * nS
+#b_BC = 0 * pA
 tau_w_BC = 178.581099914024 * ms
 
 eqs_PC = """
@@ -190,8 +194,8 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     # weight matrix used here
     if STDP_mode == "asym":
         #taup = taum = 20 * ms
-        taup = 20 * ms # Making the window the same
-        taum = 20 * ms
+        taup = 10 * ms # Making the window the same
+        taum = 10 * ms
         Ap = 0.01
         Am = -Ap  # Post syn stdp 
         #wmax = 2e-8  # S
@@ -286,12 +290,14 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     upstream_neurons = np.array([],dtype=int32)
     if RunType == "org":
         syn_slice = C_PC_E.i[:,detailed_selection]
+        PCs_Weights[C_PC_E.i[:], C_PC_E.j[:]] = C_PC_E.w_exc[:]
     else:
         for target_pc in [detailed_selection]:
             upstream_pcs=sortedframe.loc[target_pc,:].head(50) #50 synapses with largest value to track for the target PCs
             #syn_slice[target_pc] = upstream_pcs.variable.values
             syn_slice = upstream_pcs.variable.values
             upstream_neurons = np.append(upstream_neurons, np.array(upstream_pcs.variable.values))
+            PCs_Weights[C_PC_E_STDP.i[:], C_PC_E_STDP.j[:]] = C_PC_E_STDP.w_exc[:]
         
     
     
@@ -316,8 +322,12 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     w_exc:1
     '''
         #M_Selection=C_PC_E_STDP.i[:,Selected_PC]
-    syn_slice = C_PC_E_STDP.i[:,Selected_PC]
-    s_w = C_PC_E_STDP.w_exc[:,Selected_PC]
+    if RunType == "org":
+        syn_slice = C_PC_E.i[:,Selected_PC]
+        s_w = C_PC_E.w_exc[:,Selected_PC]
+    else:
+        syn_slice = C_PC_E_STDP.i[:,Selected_PC]
+        s_w = C_PC_E_STDP.w_exc[:,Selected_PC]
     subset_df = pd.DataFrame()
     subset_df["pc"]=syn_slice
     subset_df["value"]=s_w
@@ -375,12 +385,16 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
         #run(first_break_sim_len*ms, report="text")
     else:
         net.run(first_break_sim_len*ms)
-    #PCs_Weights_A[C_PC_E_STDP.i[:], C_PC_E_STDP.j[:]] = C_PC_E_STDP.w_exc[:]
+    
+    if RunType == "org":
+        PCs_Weights_A[C_PC_E.i[:], C_PC_E.j[:]] = C_PC_E.w_exc[:]
+    else:
+        PCs_Weights_A[C_PC_E_STDP.i[:], C_PC_E_STDP.j[:]] = C_PC_E_STDP.w_exc[:]
     PCWf_name = os.path.join(folder,'PC_Weights_Mid')
     PCPf_name = os.path.join(folder,'PC_Weights_Diagram_Mid')
-    #save_wmx(PCs_Weights, PCWf_name)
-    #plot_wmx(PCs_Weights_A, save_name=PCPf_name)
-    #plot_histogram_wmx(PCs_Weights_A, save_name=PCPf_name + '_histogram')
+    save_wmx(PCs_Weights, PCWf_name)
+    plot_wmx(PCs_Weights_A, save_name=PCPf_name)
+    plot_histogram_wmx(PCs_Weights_A, save_name=PCPf_name + '_histogram')
     #plot_violin(PCs_Weights, PCs_Weights_A, save_name=PCPf_name+'_diff_org_A')
     #plot_Zoom_Weights(w=C_PC_E_SM,save_name=PCPf_name+ "_A")
     #net.restore()
@@ -391,7 +405,11 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     else:
         net.run(end_sim_len*ms)
     #device.build(directory='output', compile=True, run=True, debug=True)
-    #PCs_Weights_B[C_PC_E_STDP.i[:], C_PC_E_STDP.j[:]] = C_PC_E_STDP.w_exc[:]
+    if RunType == "org":
+        PCs_Weights_B[C_PC_E.i[:], C_PC_E.j[:]] = C_PC_E.w_exc[:]
+    else:
+        PCs_Weights_B[C_PC_E_STDP.i[:], C_PC_E_STDP.j[:]] = C_PC_E_STDP.w_exc[:]
+    
     PCWf_name = os.path.join(folder,'PC_Weights_end')
     PCPf_name = os.path.join(folder,'PC_Weights_Diagram_end')
     #save_wmx(PCs_Weights, PCWf_name)
@@ -400,10 +418,24 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     #plot_violin(PCs_Weights, PCs_Weights_B, save_name=PCPf_name+'_diff_org_B')
     #plot_violin(PCs_Weights_A, PCs_Weights_B, save_name=PCPf_name+'_diff_A_B')
     #plot_Zoom_Weights(w=C_PC_E_SM,save_name=PCPf_name+ "_B")
- 
+    df_PCs = pd.DataFrame(PCs_Weights)
+    df_PCs = df_PCs.melt(ignore_index=False)
+    df_PCs = df_PCs[df_PCs['value'] > 0.1]
+    
+    df_PCs_A = pd.DataFrame(PCs_Weights_A)
+    df_PCs_A = df_PCs_A.melt(ignore_index=False)
+    df_PCs_A = df_PCs_A[df_PCs_A['value'] > 0.1]
+    
+    df_PCs_B = pd.DataFrame(PCs_Weights_B)
+    df_PCs_B = df_PCs_B.melt(ignore_index=False)
+    df_PCs_B = df_PCs_B[df_PCs_B['value'] > 0.1]
+    #if RunType != "org":
+    #    datalayer.SaveTrial(engine=engine,data=df_PCs,tablename='SynWeightsMatrix',expid=expid,selected_pc=0)
+    #    datalayer.SaveTrial(engine=engine,data=df_PCs_A,tablename='SynWeightsMatrix',expid=expid,selected_pc=-1)
+    #    datalayer.SaveTrial(engine=engine,data=df_PCs_B,tablename='SynWeightsMatrix',expid=expid,selected_pc=-2)
     if save:
         save_vars(SM_PC, RM_PC, StateM_PC, selection, seed)
-    if save_slice:
+    if save_slice and RunType != "org" :
         save_vars_syn(StateM=C_PC_E_SM, folder=fig_dir, SpikeM=SM_PC,SpikeM_BC = SM_BC, selected_pc=detailed_selection, subset = syn_slice ,RateM=RM_PC, RateM_BC = RM_BC,engine=engine,expid=expid,offset=0,runType=RunType,synapses=C_PC_E_STDP)
     datalayer.CloseTrial(engine=engine,expid=expid)
     return SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC
@@ -567,6 +599,9 @@ if __name__ == "__main__":
     dir_name_save = os.path.join(base_path, "figures", "%.2f_replay_det_%s_%.1f" % (1, STDP_mode, place_cell_ratio) ,FolderDescription) if linear else None
     set_fig_dir(dir_name_save)
     set_len_sim(total_sim_len)
+    if os.path.isdir(dir_name) == False:
+        os.mkdir(dir_name)
+
     if os.path.isdir(dir_name_save) == False:
         os.mkdir(dir_name_save)
         print("dir exist: " + dir_name_save)
