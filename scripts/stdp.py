@@ -75,7 +75,7 @@ if __name__ == "__main__":
         STDP_mode = "sym"
     assert STDP_mode in ["asym", "sym"]
 
-    place_cell_ratio = 0.5
+    place_cell_ratio = 0.4
     linear = True
     f_in = "spike_trains_%.1f_linear.npz" % place_cell_ratio if linear else "spike_trains_%.1f.npz" % place_cell_ratio
     f_out = "wmx_%s_%.1f_linear.npz" % (STDP_mode, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)

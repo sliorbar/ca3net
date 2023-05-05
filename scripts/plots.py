@@ -719,7 +719,8 @@ def plot_violin(w_exc1, w_exc2, save_name,w_threshold=0.3,dist_threshold=10):
     
     dframe4.insert(0,'Source','Final')
     frames = [dframe3,dframe4]
-    consolidated_data = pd.concat(frames)
+    #consolidated_data = pd.concat(frames)
+    consolidated_data = pd.concat([dframe3,dframe4])
     #consolidated_data = consolidated_data.drop(columns=['variable'])
     #consolidated_data['distance_from_diag'] = abs(consolidated_data['variable']- consolidated_data.index)
     #table = pd.pivot_table(data=consolidated_data,aggfunc='count',values='value',columns='Source',index='value')
