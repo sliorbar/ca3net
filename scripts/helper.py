@@ -16,6 +16,7 @@ from sympy import true
 from poisson_proc import hom_poisson, get_tuning_curve_linear
 from brian2.units.allunits import *
 from brian2.units.stdunits import *
+import pandas as pd
 from pandas import DataFrame as df
 import datalayer
 
@@ -231,6 +232,17 @@ def save_vars(SM, RM, StateM, subset, seed, f_name="sim_vars_PC"):
         pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
 
 #Lior New Save for one PC and weights
+def SynWeightDist(data):
+    """
+    Group synaptic weights into two decimals groups and return count of weights in each
+    """
+    meltdf = df(data)
+    meltdf = meltdf.melt(ignore_index=True)
+    #meltdf = meltdf[meltdf["value"] > 0.01]
+    meltdf["Bucket"] = meltdf["value"].round(decimals=2)
+    meltdf = meltdf.groupby(['Bucket']).count()
+    meltdf.drop(columns=['variable'])
+    return meltdf
 
 def save_vars_syn(SpikeM, StateM, RateM, subset, selected_pc, folder, f_name="syn_vars_PC", offset=0, engine=None,expid=None,runType=None,synapses=None, SpikeM_BC = None, RateM_BC = None):
     """
@@ -558,13 +570,13 @@ def argmin_time_arrays(time_short, time_long):
     return [np.argmin(np.abs(time_long-t)) for t in time_short]
 
 
-def generate_cue_spikes():
+def generate_cue_spikes(rate=20.0,rnd=10,duration = 0.05, neurons=11):
     """Generates short (200ms) Poisson spike train at 20Hz (with brian2's `PoissonGroup()` one can't specify the duration)"""
 
-    spike_times = np.asarray(hom_poisson(20.0, 10, t_max=0.2, seed=12345))
+    spike_times = np.asarray(hom_poisson(rate, rnd, t_max=duration, seed=12345))
     spiking_neurons = np.zeros_like(spike_times)
-    for neuron_id in range(1, 100):
-        spike_times_tmp = np.asarray(hom_poisson(20.0, 10, t_max=0.2, seed=12345+neuron_id))
+    for neuron_id in range(1, neurons):
+        spike_times_tmp = np.asarray(hom_poisson(rate, rnd, t_max=duration, seed=12345+neuron_id))
         spike_times = np.concatenate((spike_times, spike_times_tmp), axis=0)
         spiking_neurons_tmp = neuron_id * np.ones_like(spike_times_tmp)
         spiking_neurons = np.concatenate((spiking_neurons, spiking_neurons_tmp), axis=0)

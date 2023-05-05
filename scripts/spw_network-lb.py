@@ -22,7 +22,7 @@ from sympy import true
 prefs.codegen.target = "numpy"
 import matplotlib.pyplot as plt
 from helper import load_wmx, preprocess_monitors, generate_cue_spikes,\
-                   save_vars, save_PSD, save_TFR, save_LFP, save_replay_analysis,save_wmx,save_vars_syn
+                   save_vars, save_PSD, save_TFR, save_LFP, save_replay_analysis,save_wmx,save_vars_syn,SynWeightDist
 from detect_replay import replay_circular, slice_high_activity, replay_linear
 from detect_oscillations import analyse_rate, ripple_AC, ripple, gamma, calc_TFR, analyse_estimated_LFP
 from plots import plot_violin, plot_raster, plot_posterior_trajectory, plot_PSD, plot_TFR, plot_zoomed, plot_detailed, plot_LFP, set_fig_dir, plot_wmx,set_len_sim,plot_histogram_wmx, plot_Zoom_Weights,fig_dir
@@ -31,11 +31,17 @@ from plots import plot_violin, plot_raster, plot_posterior_trajectory, plot_PSD,
 #set_device("cuda_standalone")
 base_path = os.path.sep.join(os.path.abspath("__file__").split(os.path.sep)[:-2])
 RunType = "org"
-org_sim_len = 3000
-first_break_sim_len = 4000
-end_sim_len = 3000
+#Lior's parameters
+org_sim_len = 1000
+first_break_sim_len = 5000
+end_sim_len = 4000
+taup_sim = 20 #pre synaptic stdp decay constant
+taum_sim = 20 #post synaptic stdp decay constant
+stdp_sym_factor = 1
 total_sim_len=org_sim_len+first_break_sim_len+end_sim_len
 Selected_PC_Index=0
+PC_SynDelay = 0 # in ms
+Cue_Param = False
 # population size
 nPCs = 8000
 nBCs = 150
@@ -43,6 +49,7 @@ nBCs = 150
 connection_prob_PC = 0.1
 connection_prob_BC = 0.25
 
+exp_description = "Time: 1st break= " + str (first_break_sim_len) + ', total duration= ' +str(total_sim_len)  + ', org sim= ' +str(org_sim_len) + ', synanptic delay = ' +str(PC_SynDelay)+ ', stdp bias factor = ' +str(stdp_sym_factor) + ', cue = ' +str(Cue_Param)
 # synaptic time constants:
 # rise time constants
 rise_PC_E = 1.3 * ms  # Guzman 2016 (only from Fig.1 H - 20-80%)
@@ -68,10 +75,16 @@ norm_BC_E = 1.0 / (np.exp(-tp/decay_BC_E) - np.exp(-tp/rise_BC_E))
 tp = (decay_BC_I * rise_BC_I)/(decay_BC_I - rise_BC_I) * np.log(decay_BC_I/rise_BC_I)
 norm_BC_I = 1.0 / (np.exp(-tp/decay_BC_I) - np.exp(-tp/rise_BC_I))
 # synaptic delays:
-delay_PC_E = 2.2 * ms  # Guzman 2016
+#delay_PC_E = 2.2 * ms  # Guzman 2016
 delay_PC_I = 1.1 * ms  # Bartos 2002
 delay_BC_E = 0.9 * ms  # Geiger 1997 (data from DG)
 delay_BC_I = 0.6 * ms  # Bartos 2002
+'''Modify the code to remove synaptic delay'''
+delay_PC_E = PC_SynDelay * ms  # Guzman 2016
+#delay_PC_I = 0 * ms  # Bartos 2002
+#delay_BC_E = 0 * ms  # Geiger 1997 (data from DG)
+#delay_BC_I = 0 * ms  # Bartos 2002
+
 # synaptic reversal potentials
 Erev_E = 0.0 * mV
 Erev_I = -70.0 * mV
@@ -160,11 +173,12 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
 
     np.random.seed(seed)
     pyrandom.seed(seed)
-
+    global Selected_PC_Index
     # synaptic weights (see `/optimization/optimize_network.py`)
     w_PC_I = 0.65  # nS
     w_BC_E = 0.85
     w_BC_I = 5.
+    #w_PC_I = 0 #check setup
     if STDP_mode == "asym":
         w_PC_MF = 21.5
     elif STDP_mode == "sym":
@@ -185,19 +199,26 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     C_PC_MF.connect(j="i")
 
     if cue:
-        spike_times, spiking_neurons = generate_cue_spikes()
-        cue_input = SpikeGeneratorGroup(100, spiking_neurons, spike_times*second)
+        #cue_input = PoissonGroup(1, rate_MF*10)
+        #C_PC_cue = Synapses(cue_input, PCs, on_pre="x_ampaMF+=norm_PC_MF*w_PC_MF*2")
+        #C_PC_cue.connect(j="i")
+        #C_PC_cue.connect()
+        num_of_neurons = 5
+        #spike_times, spiking_neurons = generate_cue_spikes()
+        spike_times, spiking_neurons = generate_cue_spikes(rate=100,rnd=200,duration=0.05,neurons=num_of_neurons)
+        cue_input = SpikeGeneratorGroup(num_of_neurons, spiking_neurons, spike_times*second + org_sim_len* ms)
         # connects at the end of PC pop (...end of track in linear case)
-        C_PC_cue = Synapses(cue_input, PCs, on_pre="x_ampaMF+=norm_PC_MF*w_PC_MF")
-        C_PC_cue.connect(i=np.arange(0, 100), j=np.arange(7500, 7600))
+        C_PC_cue = Synapses(cue_input, PCs, on_pre="x_ampaMF+=norm_PC_MF*w_PC_MF*2")
+        #C_PC_cue.connect(i=np.arange(0, 100), j=np.arange(7500, 7600))
+        C_PC_cue.connect(condition='i % 5 == j % 5')
 
     # weight matrix used here
     if STDP_mode == "asym":
         #taup = taum = 20 * ms
-        taup = 10 * ms # Making the window the same
-        taum = 10 * ms
+        taup = taup_sim * ms 
+        taum = taum_sim * ms
         Ap = 0.01
-        Am = -Ap  # Post syn stdp 
+        Am = -Ap * stdp_sym_factor # Post syn stdp 
         #wmax = 2e-8  # S
         scale_factor = 1.27
     elif STDP_mode == "sym":
@@ -237,6 +258,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     PCs_Weights = np.zeros((nPCs, nPCs))
     PCs_Weights_A = np.zeros((nPCs, nPCs))
     PCs_Weights_B = np.zeros((nPCs, nPCs))
+    PCs_Weights_Diff = np.zeros((nPCs, nPCs))
     
     if RunType == "org":
         C_PC_E = Synapses(PCs, PCs, "w_exc:1", on_pre="x_ampa+=norm_PC_E*w_exc", delay=delay_PC_E)
@@ -255,11 +277,12 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
         #syn_slice = C_PC_E_STDP.i[:,Selected_PC]
         if Selected_PC_Index < 0:
             pc_sel = C_PC_E_STDP.i[:]
-            Selected_PC = np.random.choice(pc_sel)
+            rng = np.random.default_rng()
+            Selected_PC = rng.choice(a=pc_sel)
         else:
             Selected_PC = C_PC_E_STDP.i[Selected_PC_Index]
         
-    synapse_details= 'Eq='+synapse_setup + ', on_pre=' + on_pre_setup + ', on_post=' + on_post_setup + ', Selected PC=' + str(Selected_PC) + ', Am=' + str(Am) + ', Ap=' + str(Ap) + ', taup=' + str(taup) + ', taum=' + str(taum)
+    synapse_details= exp_description + ', Selected PC=' + str(Selected_PC) + ', Am=' + '{0:.2f}'.format(Am) + ', Ap=' + '{0:.2f}'.format(Ap) + ', taup=' + str(taup) + ', taum=' + str(taum)
 
         
 
@@ -292,12 +315,12 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
         syn_slice = C_PC_E.i[:,detailed_selection]
         PCs_Weights[C_PC_E.i[:], C_PC_E.j[:]] = C_PC_E.w_exc[:]
     else:
-        for target_pc in [detailed_selection]:
-            upstream_pcs=sortedframe.loc[target_pc,:].head(50) #50 synapses with largest value to track for the target PCs
+    #    for target_pc in [detailed_selection]:
+            #upstream_pcs=sortedframe.loc[target_pc,:].head(50) #50 synapses with largest value to track for the target PCs
             #syn_slice[target_pc] = upstream_pcs.variable.values
-            syn_slice = upstream_pcs.variable.values
-            upstream_neurons = np.append(upstream_neurons, np.array(upstream_pcs.variable.values))
-            PCs_Weights[C_PC_E_STDP.i[:], C_PC_E_STDP.j[:]] = C_PC_E_STDP.w_exc[:]
+            #syn_slice = upstream_pcs.variable.values
+            #upstream_neurons = np.append(upstream_neurons, np.array(upstream_pcs.variable.values))
+        PCs_Weights[C_PC_E_STDP.i[:], C_PC_E_STDP.j[:]] = C_PC_E_STDP.w_exc[:]
         
     
     
@@ -307,8 +330,8 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     #plot_wmx(PCs_Weights, save_name=PCPf_name)
     
     #PCs_Weights[C_PC_E.i[:], C_PC_E.j[:]] = C_PC_E.w_exc[:]
-    upstream_neurons = np.unique(upstream_neurons)
-    upstream_neurons = np.sort(upstream_neurons)
+    #upstream_neurons = np.unique(upstream_neurons)
+    #upstream_neurons = np.sort(upstream_neurons)
     #upstream_neurons = upstream_neurons.tolist()
     #upstream_neurons = ndarray()
     PCWf_name = os.path.join(folder,'PC_Weights_before')
@@ -336,9 +359,9 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     subset_df.sort_values(by=['pc'],ascending=True,inplace=True)
     upstream_neurons = subset_df['pc']
 
-    if syn_slice.size > 20:
+    #if syn_slice.size > 20:
         
-        syn_slice=syn_slice[:20]
+        #syn_slice=syn_slice[:20]
         #syn_slice = numpy.append(syn_slice,Selected_PC)
     syn_slice = upstream_neurons.values
     #M_Selection=C_PC_E_STDP[:,Selected_PC]
@@ -359,6 +382,8 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
         #C_PC_E_SM = StateMonitor(C_PC_E_STDP,variables =['w_exc'],record=True,dt=1*ms)
         C_PC_E_SM = StateMonitor(C_PC_E_STDP,variables =['w_exc'],record=C_PC_E_STDP[syn_slice,Selected_PC],dt=1*ms)
         net = Network(PCs,BCs,MF,C_PC_MF,C_PC_E_STDP,C_PC_I,C_BC_E,C_BC_I, SM_PC,SM_BC,RM_PC,RM_BC,C_PC_E_SM,StateM_PC,StateM_BC)
+        if cue:
+           net.add(C_PC_cue,cue_input)
     if verbose:
         net.run(org_sim_len*ms, report="text")
         #run(org_sim_len*ms, report="text")
@@ -370,6 +395,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
         #run(10000*ms)
         #store()
         net.run(org_sim_len*ms)
+        #run(org_sim_len*ms)
         #net.store()
     
     #net.remove(C_PC_E)
@@ -383,19 +409,25 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     if verbose:
         net.run(first_break_sim_len*ms, report="text")
         #run(first_break_sim_len*ms, report="text")
+        
+
     else:
+        #if cue:
+        #   net.add(C_PC_cue,cue_input)
         net.run(first_break_sim_len*ms)
+        #run(first_break_sim_len*ms)
     
     if RunType == "org":
         PCs_Weights_A[C_PC_E.i[:], C_PC_E.j[:]] = C_PC_E.w_exc[:]
     else:
         PCs_Weights_A[C_PC_E_STDP.i[:], C_PC_E_STDP.j[:]] = C_PC_E_STDP.w_exc[:]
+        C_PC_E_STDP.w_exc[:] = C_PC_E_STDP.w_exc[:] * 1.5 #Increase weights 50%
     PCWf_name = os.path.join(folder,'PC_Weights_Mid')
     PCPf_name = os.path.join(folder,'PC_Weights_Diagram_Mid')
     save_wmx(PCs_Weights, PCWf_name)
     plot_wmx(PCs_Weights_A, save_name=PCPf_name)
     plot_histogram_wmx(PCs_Weights_A, save_name=PCPf_name + '_histogram')
-    #plot_violin(PCs_Weights, PCs_Weights_A, save_name=PCPf_name+'_diff_org_A')
+    plot_violin(PCs_Weights, PCs_Weights_A, save_name=PCPf_name+'_diff_org_A')
     #plot_Zoom_Weights(w=C_PC_E_SM,save_name=PCPf_name+ "_A")
     #net.restore()
     #run(3000*ms, report="text")
@@ -404,6 +436,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
         #run(end_sim_len*ms, report="text")
     else:
         net.run(end_sim_len*ms)
+        #run(end_sim_len*ms)
     #device.build(directory='output', compile=True, run=True, debug=True)
     if RunType == "org":
         PCs_Weights_B[C_PC_E.i[:], C_PC_E.j[:]] = C_PC_E.w_exc[:]
@@ -414,25 +447,25 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     PCPf_name = os.path.join(folder,'PC_Weights_Diagram_end')
     #save_wmx(PCs_Weights, PCWf_name)
     #plot_wmx(PCs_Weights_B, save_name=PCPf_name)
-    #plot_histogram_wmx(PCs_Weights_B, save_name=PCPf_name + '_histogram')
-    #plot_violin(PCs_Weights, PCs_Weights_B, save_name=PCPf_name+'_diff_org_B')
-    #plot_violin(PCs_Weights_A, PCs_Weights_B, save_name=PCPf_name+'_diff_A_B')
+    plot_histogram_wmx(PCs_Weights_B, save_name=PCPf_name + '_histogram')
+    plot_violin(PCs_Weights, PCs_Weights_B, save_name=PCPf_name+'_diff_org_B')
+    plot_violin(PCs_Weights_A, PCs_Weights_B, save_name=PCPf_name+'_diff_A_B')
     #plot_Zoom_Weights(w=C_PC_E_SM,save_name=PCPf_name+ "_B")
-    df_PCs = pd.DataFrame(PCs_Weights)
-    df_PCs = df_PCs.melt(ignore_index=False)
-    df_PCs = df_PCs[df_PCs['value'] > 0.1]
+    '''Extract the synaptics weights statistics (count by bucket)'''
+    PCs_Weights_Diff = PCs_Weights - PCs_Weights_B
+    PCs_Weights_Diff_A = PCs_Weights - PCs_Weights_A
+    df_PCs = SynWeightDist(PCs_Weights)
+    df_PCs_A = SynWeightDist(PCs_Weights_A)
+    df_PCs_B = SynWeightDist(PCs_Weights_B)
+    df_PCs_Diff = SynWeightDist(PCs_Weights_Diff)
+    df_PCs_Diff_A = SynWeightDist(PCs_Weights_Diff_A)
     
-    df_PCs_A = pd.DataFrame(PCs_Weights_A)
-    df_PCs_A = df_PCs_A.melt(ignore_index=False)
-    df_PCs_A = df_PCs_A[df_PCs_A['value'] > 0.1]
-    
-    df_PCs_B = pd.DataFrame(PCs_Weights_B)
-    df_PCs_B = df_PCs_B.melt(ignore_index=False)
-    df_PCs_B = df_PCs_B[df_PCs_B['value'] > 0.1]
-    #if RunType != "org":
-    #    datalayer.SaveTrial(engine=engine,data=df_PCs,tablename='SynWeightsMatrix',expid=expid,selected_pc=0)
-    #    datalayer.SaveTrial(engine=engine,data=df_PCs_A,tablename='SynWeightsMatrix',expid=expid,selected_pc=-1)
-    #    datalayer.SaveTrial(engine=engine,data=df_PCs_B,tablename='SynWeightsMatrix',expid=expid,selected_pc=-2)
+    if RunType != "org":
+        datalayer.SaveTrial(engine=engine,data=df_PCs,tablename='SynWeightsStats',expid=expid,selected_pc=0)
+        datalayer.SaveTrial(engine=engine,data=df_PCs_A,tablename='SynWeightsStats',expid=expid,selected_pc=-1)
+        datalayer.SaveTrial(engine=engine,data=df_PCs_B,tablename='SynWeightsStats',expid=expid,selected_pc=-2)
+        datalayer.SaveTrial(engine=engine,data=df_PCs_Diff,tablename='SynWeightsStats',expid=expid,selected_pc=-100)
+        datalayer.SaveTrial(engine=engine,data=df_PCs_Diff_A,tablename='SynWeightsStats',expid=expid,selected_pc=-99)
     if save:
         save_vars(SM_PC, RM_PC, StateM_PC, selection, seed)
     if save_slice and RunType != "org" :
@@ -583,7 +616,7 @@ if __name__ == "__main__":
     RunType = RunT
     save = False
     save_slice=True
-    cue = False
+    cue = Cue_Param
     verbose = True 
     TFR = False
     linear = True

@@ -76,7 +76,7 @@ def SaveTrial(engine,data, tablename,expid, selected_pc = None,unpivot=False, of
     savedata['SelectedPC']=selected_pc
     savedata['expid'] = expid
     conn = engine.connect()
-    savedata.to_sql(name=tablename,con=conn,if_exists='append')
+    savedata.to_sql(name=tablename,con=conn,if_exists='append',chunksize=200)
     conn.close()
 
     return 1
