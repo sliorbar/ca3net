@@ -421,7 +421,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
         PCs_Weights_A[C_PC_E.i[:], C_PC_E.j[:]] = C_PC_E.w_exc[:]
     else:
         PCs_Weights_A[C_PC_E_STDP.i[:], C_PC_E_STDP.j[:]] = C_PC_E_STDP.w_exc[:]
-        C_PC_E_STDP.w_exc[:] = C_PC_E_STDP.w_exc[:] * 1.5 #Increase weights 50%
+        #C_PC_E_STDP.w_exc[:] = C_PC_E_STDP.w_exc[:] * 1.5 #Increase weights 50%
     PCWf_name = os.path.join(folder,'PC_Weights_Mid')
     PCPf_name = os.path.join(folder,'PC_Weights_Diagram_Mid')
     save_wmx(PCs_Weights, PCWf_name)
