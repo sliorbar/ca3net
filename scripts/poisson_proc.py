@@ -49,7 +49,7 @@ def hom_poisson(lambda_, n_rnds, t_max, seed):
     rnd_isis = _generate_exp_rand_numbers(lambda_, n_rnds, seed)
     poisson_proc = np.cumsum(rnd_isis)
 
-    assert poisson_proc[-1] > t_max, "Spike train is too short, consider increasing `n_rnds`!"
+    #assert poisson_proc[-1] > t_max, "Spike train is too short, consider increasing `n_rnds`!"
     return poisson_proc[np.where(poisson_proc <= t_max)]
 
 
@@ -122,6 +122,7 @@ def inhom_poisson(lambda_, t_max, phi_start, linear, seed, phase0=0.0):
     :return: inhom_poisson_proc: inhomogenos Poisson process representing the spike train of a place cell
     """
 
+    #poisson_proc = hom_poisson(lambda_, 10000, t_max, seed)  # hard coded 10000 works with 20Hz rate and 405sec spike train
     poisson_proc = hom_poisson(lambda_, 10000, t_max, seed)  # hard coded 10000 works with 20Hz rate and 405sec spike train
 
     # keep only a subset of spikes

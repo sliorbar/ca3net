@@ -11,6 +11,7 @@ import shutil
 from brian2.units.allunits import *
 from brian2.units.stdunits import *
 from brian2.utils.caching import *
+from scipy.sparse import coo_matrix
 import numpy as np
 import datalayer
 import random as pyrandom
@@ -21,8 +22,7 @@ from sqlalchemy import false
 from sympy import true
 prefs.codegen.target = "numpy"
 import matplotlib.pyplot as plt
-from helper import load_wmx, preprocess_monitors, generate_cue_spikes,\
-                   save_vars, save_PSD, save_TFR, save_LFP, save_replay_analysis,save_wmx,save_vars_syn,SynWeightDist
+from helper import load_wmx, preprocess_monitors, generate_cue_spikes,save_vars, save_PSD, save_TFR, save_LFP, save_replay_analysis,save_wmx,save_vars_syn,SynWeightDist, load_spike_trains, save_wmx
 from detect_replay import replay_circular, slice_high_activity, replay_linear
 from detect_oscillations import analyse_rate, ripple_AC, ripple, gamma, calc_TFR, analyse_estimated_LFP
 from plots import plot_violin, plot_raster, plot_posterior_trajectory, plot_PSD, plot_TFR, plot_zoomed, plot_detailed, plot_LFP, set_fig_dir, plot_wmx,set_len_sim,plot_histogram_wmx, plot_Zoom_Weights,fig_dir
@@ -35,15 +35,14 @@ RunType = "org"
 org_sim_len = 1000
 first_break_sim_len = 5000
 end_sim_len = 4000
-taup_sim = 5 #pre synaptic stdp decay constant
-taum_sim = 5 #post synaptic stdp decay constant
-stdp_post_scale_factor = 0
-stdp_pre_scale_factor = 0 #Use to modify the pre / post window
+taup_sim = 20 #pre synaptic stdp decay constant
+taum_sim = 20 #post synaptic stdp decay constant
+stdp_post_scale_factor = 1
+stdp_pre_scale_factor = 1 #Use to modify the pre / post window
 total_sim_len=org_sim_len+first_break_sim_len+end_sim_len
 Selected_PC_Index=0
-PC_SynDelay = 10 # in ms
+PC_SynDelay = 5 # in ms
 Cue_Param = False
-Learning_Rate = 0.002
 synaptic_zoom = 20 # The number of presynaptic connection to log on the zoom PC
 # population size
 nPCs = 8000
@@ -162,7 +161,7 @@ dx_gaba/dt = -x_gaba/decay_BC_I : 1
 """
 
 
-def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = None, engine=None, verbose=True, folder=None, expid=None):
+def run_simulation(STDP_mode, cue, save, save_slice, seed, expdesc = None, engine=None, verbose=True, folder=None, expid=None):
     """
     Sets up the network and runs simulation
     :param wmx_PC_E: np.array representing the recurrent excitatory synaptic weight matrix
@@ -173,7 +172,11 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     :param verbose: bool flag to report status of simulation
     :return SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC: Brian2 monitors (+ array of selected cells used by multi state monitor)
     """
-
+    f_in = "spike_trains_%.1f_linear.npz" % place_cell_ratio if linear else "spike_trains_%.1f.npz" % place_cell_ratio
+    spiking_neurons, spike_times = load_spike_trains(os.path.join(base_path, "files", f_in))
+    wmx_PC_E_org = initial_learning(spiking_neurons, spike_times)
+    #device.delete()
+    wmx_PC_E = coo_matrix(wmx_PC_E_org)
     np.random.seed(seed)
     pyrandom.seed(seed)
     global Selected_PC_Index
@@ -220,7 +223,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
         #taup = taum = 20 * ms
         taup = taup_sim * ms 
         taum = taum_sim * ms
-        Ap = Learning_Rate
+        Ap = 0.002
         Am = -Ap * stdp_post_scale_factor # Post syn stdp 
         Ap = Ap * stdp_pre_scale_factor
         #wmax = 2e-8  # S
@@ -286,7 +289,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
         else:
             Selected_PC = C_PC_E_STDP.i[Selected_PC_Index]
         
-    synapse_details= exp_description + ', Selected PC=' + str(Selected_PC) + ', Am=' + '{0:.2f}'.format(Am) + ', Ap=' + '{0:.2f}'.format(Ap) + ', taup=' + str(taup) + ', taum=' + str(taum) + ', learning_rate=' + '{0:.3f}'.format(Learning_Rate)
+    synapse_details= exp_description + ', Selected PC=' + str(Selected_PC) + ', Am=' + '{0:.2f}'.format(Am) + ', Ap=' + '{0:.2f}'.format(Ap) + ', taup=' + str(taup) + ', taum=' + str(taum)
 
         
 
@@ -309,52 +312,41 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     StateM_BC = StateMonitor(BCs, "vm", record=[nBCs/2], dt=0.1*ms)
     #detailed_selection = np.random.choice(selection,size=1) #Select 20 target neurons from already selected indices
     detailed_selection=Selected_PC
-    syn_slice = {}
-    matrix_df = pd.DataFrame.sparse.from_spmatrix(wmx_PC_E)
-    unpivot = matrix_df.melt(ignore_index=False)
-    non_zero = unpivot[unpivot.value > 0]
-    sortedframe = non_zero.sort_values(by=['value'],ascending=False,inplace=False)
-    upstream_neurons = np.array([],dtype=int32)
+    #syn_slice = {}
+    #matrix_df = pd.DataFrame.sparse.from_spmatrix(wmx_PC_E)
+    #matrix_df = pd.DataFrame(wmx_PC_E_org[:Selected_PC])
+    
+    #unpivot = matrix_df.melt(ignore_index=False)
+    #non_zero = unpivot[unpivot.value > 0]
+    #sortedframe = non_zero.sort_values(by=['value'],ascending=False,inplace=False)
+    #upstream_neurons = np.array([],dtype=int32)
     if RunType == "org":
         syn_slice = C_PC_E.i[:,detailed_selection]
-        PCs_Weights[C_PC_E.i[:], C_PC_E.j[:]] = C_PC_E.w_exc[:]
+        #PCs_Weights[C_PC_E.i[:], C_PC_E.j[:]] = C_PC_E.w_exc[:]
+        PCs_Weights=wmx_PC_E_org
     else:
     #    for target_pc in [detailed_selection]:
             #upstream_pcs=sortedframe.loc[target_pc,:].head(50) #50 synapses with largest value to track for the target PCs
             #syn_slice[target_pc] = upstream_pcs.variable.values
             #syn_slice = upstream_pcs.variable.values
             #upstream_neurons = np.append(upstream_neurons, np.array(upstream_pcs.variable.values))
-        PCs_Weights[C_PC_E_STDP.i[:], C_PC_E_STDP.j[:]] = C_PC_E_STDP.w_exc[:]
+        #PCs_Weights[C_PC_E_STDP.i[:], C_PC_E_STDP.j[:]] = C_PC_E_STDP.w_exc[:]
+        PCs_Weights=wmx_PC_E_org
         
     
     
-    #PCWf_name = os.path.join(folder,'PC_Weights_baseline')
-    #PCPf_name = os.path.join(folder,'PC_Weights_Diagram_baseline')
-    #save_wmx(PCs_Weights, PCWf_name)
-    #plot_wmx(PCs_Weights, save_name=PCPf_name)
-    
-    #PCs_Weights[C_PC_E.i[:], C_PC_E.j[:]] = C_PC_E.w_exc[:]
-    #upstream_neurons = np.unique(upstream_neurons)
-    #upstream_neurons = np.sort(upstream_neurons)
-    #upstream_neurons = upstream_neurons.tolist()
-    #upstream_neurons = ndarray()
     PCWf_name = os.path.join(folder,'PC_Weights_before')
     PCPf_name = os.path.join(folder,'PC_Weights_Diagram_before')
-    #save_wmx(PCs_Weights, PCWf_name)
-    #plot_wmx(PCs_Weights, save_name=PCPf_name)
-    #plot_histogram_wmx(PCs_Weights, save_name=PCPf_name + '_histogram')
-    #wmax = np.amax(C_PC_E.w[:])
-    #synapse_setup= 
-    '''
-    w_exc:1
-    '''
-        #M_Selection=C_PC_E_STDP.i[:,Selected_PC]
+   #wmx_PC_E_org
     if RunType == "org":
         syn_slice = C_PC_E.i[:,Selected_PC]
         s_w = C_PC_E.w_exc[:,Selected_PC]
     else:
         syn_slice = C_PC_E_STDP.i[:,Selected_PC]
         s_w = C_PC_E_STDP.w_exc[:,Selected_PC]
+        #syn_slice = np.indices(wmx_PC_E_org)
+        #s_w = wmx_PC_E_org[:,Selected_PC]
+ 
     subset_df = pd.DataFrame()
     subset_df["pc"]=syn_slice
     subset_df["value"]=s_w
@@ -441,7 +433,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     else:
         net.run(end_sim_len*ms)
         #run(end_sim_len*ms)
-    #device.build(directory='output', compile=True, run=True, debug=True)
+    device.build(directory='output', compile=True, run=True, debug=True)
     if RunType == "org":
         PCs_Weights_B[C_PC_E.i[:], C_PC_E.j[:]] = C_PC_E.w_exc[:]
     else:
@@ -477,12 +469,6 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     if save_slice and RunType != "org" :
         save_vars_syn(StateM=C_PC_E_SM, folder=fig_dir, SpikeM=SM_PC,SpikeM_BC = SM_BC, selected_pc=detailed_selection, subset = syn_slice ,RateM=RM_PC, RateM_BC = RM_BC,engine=engine,expid=expid,offset=0,runType=RunType,synapses=C_PC_E_STDP)
     datalayer.CloseTrial(engine=engine,expid=expid)
-    # For iteration with the matrix - Save the synaptic weights
-    f_out = "wmx_after_run_%s_%.1f_linear-itr.npz" % (STDP_mode, place_cell_ratio) if linear else "wmx_after_run_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)
-    weightmx = np.zeros((nPCs, nPCs))
-    weightmx[C_PC_E_STDP.i[:], C_PC_E_STDP.j[:]] = C_PC_E_STDP.w[:]
-    #weightmx =  weightmx * 1e9 #nS conversion
-    save_wmx(weightmx, os.path.join(base_path, "files", f_out))
     return SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC
 
 
@@ -612,6 +598,70 @@ def analyse_results(SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC,
             print("No activity!")
         return [np.nan for _ in range(20)]
 
+##### bring in the stdp training code and merge with current code base
+
+
+def Sym_STDP_learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init,w_exc = None):
+    """
+    Takes a spiking group of neurons, connects the neurons sparsely with each other, and learns the weight 'pattern' via STDP:
+    exponential STDP: f(s) = A_p * exp(-s/tau_p) (if s > 0), where s=tpost_{spike}-tpre_{spike}
+    :param spiking_neurons, spike_times: np.arrays for Brian2's SpikeGeneratorGroup (list of lists created by `generate_spike_train.py`) - spike train used for learning
+    :param taup, taum: time constant of weight change (in ms)
+    :param Ap, Am: max amplitude of weight change
+    :param wmax: maximum weight (in S)
+    :param w_init: initial weights (in S)
+    :return weightmx: learned synaptic weights
+    """
+    set_device("cpp_standalone")
+    #device.build()
+    np.random.seed(12345)
+    pyrandom.seed(12345)
+    #plot_STDP_rule(taup/ms, taum/ms, Ap/1e-9, Am/1e-9, "STDP_rule")
+
+    PC = SpikeGeneratorGroup(nPCs, spiking_neurons, spike_times*second)
+    
+    STDP = Synapses(PC, PC,
+            """
+            w : 1
+            dA_presyn/dt = -A_presyn/taup : 1 (event-driven)
+            dA_postsyn/dt = -A_postsyn/taum : 1 (event-driven)
+            """,
+            on_pre="""
+            A_presyn += Ap
+            w = clip(w + A_postsyn, 0, wmax)
+            """,
+            on_post="""
+            A_postsyn += Am
+            w = clip(w + A_presyn, 0, wmax)
+            """)
+    STDP.connect(condition="i!=j", p=connection_prob_PC)
+    if w_exc == None:
+        STDP.w = w_init
+    else:
+        STDP.w = w_exc
+    net1 = Network(PC,STDP)
+    net1.run(400*second, report="text")
+
+    weightmx = np.zeros((nPCs, nPCs))
+    weightmx[STDP.i[:], STDP.j[:]] = STDP.w[:]
+    #net1.remove(PC,STDP)
+    device.delete()
+    return weightmx * 1e9  # *1e9 nS conversion
+
+
+def initial_learning(spiking_neurons, spike_times,w_exc = None):
+    taup = taum = 62.5 * ms
+    Ap = Am = 4e-3
+    wmax = 2e-8  # S
+    scale_factor = 0.62
+    w_init = 1e-10  # S
+    Ap *= wmax; Am *= wmax  # needed to reproduce Brian1 results
+    weightmx = Sym_STDP_learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, w_exc)
+    weightmx *= scale_factor  # quick and dirty additional scaling! (in an ideal world the STDP parameters should be changed to include this scaling...)
+    return weightmx
+
+##
+
 
 if __name__ == "__main__":
 
@@ -638,8 +688,7 @@ if __name__ == "__main__":
     expid = datalayer.InitializeTrial(engine=engine,description='temp desc',details='temp detail')
     FolderDescription = str(expid) + '-' + FolderDescription
     #f_in = "wmx_%s_%.1f_2envs_linear.pkl"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
-    f_in = "wmx_%s_%.1f_linear400.npz"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
-    #f_in = "wmx_%s_%.1f_linear-itr.npz"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
+    f_in = "wmx_%s_%.1f_linear.npz"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
     PF_pklf_name = os.path.join(base_path, "files", "PFstarts_%s_linear.pkl" % place_cell_ratio) if linear else None
     dir_name = os.path.join(base_path, "figures", "%.2f_replay_det_%s_%.1f" % (1, STDP_mode, place_cell_ratio)) if linear else None
     dir_name_save = os.path.join(base_path, "figures", "%.2f_replay_det_%s_%.1f" % (1, STDP_mode, place_cell_ratio) ,FolderDescription) if linear else None
@@ -651,14 +700,15 @@ if __name__ == "__main__":
     if os.path.isdir(dir_name_save) == False:
         os.mkdir(dir_name_save)
         print("dir exist: " + dir_name_save)
-    wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in))  # *1e9 nS conversion
+    #wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in))  # *1e9 nS conversion
     #wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in)) * 1e9  # *1e9 nS conversion
     #brian2.__init__
     engine = datalayer.InitializeSQLEngine()
-    SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC = run_simulation(wmx_PC_E, STDP_mode, cue=cue,
+
+    SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC = run_simulation( STDP_mode, cue=cue,
                                                                                  save=save,save_slice=save_slice,expdesc=FolderDescription, engine=engine, seed=seed, verbose=verbose, folder=dir_name_save,expid=expid)
     _ = analyse_results(SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC, seed=seed,
                         multiplier=1, linear=linear, pklf_name=PF_pklf_name, dir_name=dir_name_save, TFR=TFR,
                         save=save,save_slice=save_slice, verbose=verbose)
-    device.delete(code=False)
+    #device.delete(code=False)
     plt.show()

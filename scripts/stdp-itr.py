@@ -14,7 +14,7 @@ from brian2.units.allunits import *
 from brian2.units.stdunits import *
 set_device("cpp_standalone")  # speed up the simulation with generated C++ code
 import matplotlib.pyplot as plt
-from helper import load_spike_trains, save_wmx
+from helper import load_spike_trains, save_wmx,load_wmx
 from plots import plot_STDP_rule, plot_wmx, plot_wmx_avg, plot_w_distr, save_selected_w, plot_weights
 
 
@@ -24,7 +24,7 @@ connection_prob_PC = 0.1
 nPCs = 8000
 
 
-def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init):
+def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, w_exc = None):
     """
     Takes a spiking group of neurons, connects the neurons sparsely with each other, and learns the weight 'pattern' via STDP:
     exponential STDP: f(s) = A_p * exp(-s/tau_p) (if s > 0), where s=tpost_{spike}-tpre_{spike}
@@ -58,9 +58,14 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init):
             w = clip(w + A_presyn, 0, wmax)
             """)
     STDP.connect(condition="i!=j", p=connection_prob_PC)
-    STDP.w = w_init
-    run(400*second, report="text")
-    
+    if w_exc == None:
+        STDP.w = w_init
+    else:
+        STDP.w = w_exc.data
+    net = Network(PC,STDP)
+    net.run(800 * second, report="text")
+    #run(600 * second, report="text")
+
     weightmx = np.zeros((nPCs, nPCs))
     weightmx[STDP.i[:], STDP.j[:]] = STDP.w[:]
     return weightmx * 1e9  # *1e9 nS conversion
@@ -70,6 +75,7 @@ if __name__ == "__main__":
 
     try:
         STDP_mode = sys.argv[2]
+        STDP_mode_Input = sys.argv[1]
     except:
         STDP_mode = "sym"
     assert STDP_mode in ["asym", "sym"]
@@ -77,7 +83,8 @@ if __name__ == "__main__":
     place_cell_ratio = 0.5
     linear = True
     f_in = "spike_trains_%.1f_linear.npz" % place_cell_ratio if linear else "spike_trains_%.1f.npz" % place_cell_ratio
-    f_out = "wmx_%s_%.1f_linear.npz" % (STDP_mode, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)
+    #f_out = "wmx_%s_%.1f_linear-itr.npz" % (STDP_mode, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)
+    f_out = "wmx_%s_%.1f_linear800.npz" % (STDP_mode, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)
     #f_in = "intermediate_spike_trains_%.1f_linear.npz" % place_cell_ratio if linear else "intermediate_spike_trains_%.1f.npz" % place_cell_ratio
     #f_out = "intermediate_wmx_%s_%.1f_linear.npz" % (STDP_mode, place_cell_ratio) if linear else "intermediate_wmx_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)
 
@@ -97,15 +104,24 @@ if __name__ == "__main__":
     Ap *= wmax; Am *= wmax  # needed to reproduce Brian1 results
 
     spiking_neurons, spike_times = load_spike_trains(os.path.join(base_path, "files", f_in))
+    PF_pklf_name = os.path.join(base_path, "files", "PFstarts_%s_linear_itr.pkl" % place_cell_ratio) if linear else None
+    try:
+        #f_in = "wmx_after_run_%s_%.1f_linear-itr.npz" % (STDP_mode_Input, place_cell_ratio) if linear else "wmx_after_run_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
+        f_in = "wmx_%s_%.1f_linear.npz" % (STDP_mode, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)
+        
+        wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in))  # *1e9 nS conversion
+        wmx_PC_E = wmx_PC_E * 1*nS
+    except:
+        wmx_PC_E = None
+    
 
-    weightmx = learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init)
+    weightmx = learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init,w_exc=wmx_PC_E)
     weightmx *= scale_factor  # quick and dirty additional scaling! (in an ideal world the STDP parameters should be changed to include this scaling...)
     save_wmx(weightmx, os.path.join(base_path, "files", f_out))
 
     plot_wmx(weightmx, save_name=f_out[:-4])
-    plot_wmx_avg(weightmx, n_pops=100, save_name="%s_avg" % f_out[:-4])
-    plot_w_distr(weightmx, save_name="%s_distr" % f_out[:-4])
+    #plot_wmx_avg(weightmx, n_pops=100, save_name="%s_avg" % f_out[:-4])
+    #plot_w_distr(weightmx, save_name="%s_distr" % f_out[:-4])
     selection = np.array([500, 2400, 4000, 5500, 7015])
     plot_weights(save_selected_w(weightmx, selection), save_name="%s_sel_weights" % f_out[:-4])
-    device.delete()
     plt.show()
