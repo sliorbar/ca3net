@@ -76,7 +76,10 @@ def SaveTrial(engine,data, tablename,expid, selected_pc = None,unpivot=False, of
     savedata['SelectedPC']=selected_pc
     savedata['expid'] = expid
     conn = engine.connect()
+    message = 'Writing to database %d rows' % (savedata.shape[0])
+    print(message)
     savedata.to_sql(name=tablename,con=conn,if_exists='append',chunksize=200)
+    print ('finished writing to database')
     conn.close()
 
     return 1

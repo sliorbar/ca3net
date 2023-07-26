@@ -31,20 +31,25 @@ from plots import plot_violin, plot_raster, plot_posterior_trajectory, plot_PSD,
 #set_device("cuda_standalone")
 base_path = os.path.sep.join(os.path.abspath("__file__").split(os.path.sep)[:-2])
 RunType = "org"
-#Lior's parameters
+
+
+##############Start  of LB parameters ###############
 org_sim_len = 1000
 first_break_sim_len = 5000
 end_sim_len = 4000
-taup_sim = 5 #pre synaptic stdp decay constant
-taum_sim = 5 #post synaptic stdp decay constant
-stdp_post_scale_factor = 0
-stdp_pre_scale_factor = 0 #Use to modify the pre / post window
+taup_sim = 20 #pre synaptic stdp constant
+taum_sim = 20 #post synaptic stdp constant
+stdp_post_scale_factor = 1
+stdp_pre_scale_factor = 1 #Use to modify the pre / post window
 total_sim_len=org_sim_len+first_break_sim_len+end_sim_len
 Selected_PC_Index=0
 PC_SynDelay = 10 # in ms
 Cue_Param = False
-Learning_Rate = 0.002
+Learning_Rate = 0.001
 synaptic_zoom = 20 # The number of presynaptic connection to log on the zoom PC
+
+
+##############End of LB parameters ##############
 # population size
 nPCs = 8000
 nBCs = 150
@@ -478,11 +483,11 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
         save_vars_syn(StateM=C_PC_E_SM, folder=fig_dir, SpikeM=SM_PC,SpikeM_BC = SM_BC, selected_pc=detailed_selection, subset = syn_slice ,RateM=RM_PC, RateM_BC = RM_BC,engine=engine,expid=expid,offset=0,runType=RunType,synapses=C_PC_E_STDP)
     datalayer.CloseTrial(engine=engine,expid=expid)
     # For iteration with the matrix - Save the synaptic weights
-    f_out = "wmx_after_run_%s_%.1f_linear-itr.npz" % (STDP_mode, place_cell_ratio) if linear else "wmx_after_run_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)
+    f_out = "wmx_after_run_%s_%.1f_linear-itr20ms.npz" % (STDP_mode, place_cell_ratio) if linear else "wmx_after_run_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)
     weightmx = np.zeros((nPCs, nPCs))
-    weightmx[C_PC_E_STDP.i[:], C_PC_E_STDP.j[:]] = C_PC_E_STDP.w[:]
+    weightmx[C_PC_E_STDP.i[:], C_PC_E_STDP.j[:]] = C_PC_E_STDP.w_exc[:]
     #weightmx =  weightmx * 1e9 #nS conversion
-    save_wmx(weightmx, os.path.join(base_path, "files", f_out))
+    #save_wmx(weightmx, os.path.join(base_path, "files", f_out))
     return SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC
 
 
@@ -639,7 +644,7 @@ if __name__ == "__main__":
     FolderDescription = str(expid) + '-' + FolderDescription
     #f_in = "wmx_%s_%.1f_2envs_linear.pkl"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
     f_in = "wmx_%s_%.1f_linear400.npz"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
-    #f_in = "wmx_%s_%.1f_linear-itr.npz"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
+    #f_in = "wmx_%s_%.1f_linear-itr300.npz"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
     PF_pklf_name = os.path.join(base_path, "files", "PFstarts_%s_linear.pkl" % place_cell_ratio) if linear else None
     dir_name = os.path.join(base_path, "figures", "%.2f_replay_det_%s_%.1f" % (1, STDP_mode, place_cell_ratio)) if linear else None
     dir_name_save = os.path.join(base_path, "figures", "%.2f_replay_det_%s_%.1f" % (1, STDP_mode, place_cell_ratio) ,FolderDescription) if linear else None

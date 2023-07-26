@@ -12,7 +12,10 @@ import random as pyrandom
 from brian2 import *
 from brian2.units.allunits import *
 from brian2.units.stdunits import *
-set_device("cpp_standalone")  # speed up the simulation with generated C++ code
+from scipy.sparse import coo_matrix
+import scipy.sparse
+#set_device("cpp_standalone", build_on_run=False)  # speed up the simulation with generated C++ code
+set_device("cpp_standalone")
 import matplotlib.pyplot as plt
 from helper import load_spike_trains, save_wmx,load_wmx
 from plots import plot_STDP_rule, plot_wmx, plot_wmx_avg, plot_w_distr, save_selected_w, plot_weights
@@ -57,15 +60,19 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, w_e
             A_postsyn += Am
             w = clip(w + A_presyn, 0, wmax)
             """)
-    STDP.connect(condition="i!=j", p=connection_prob_PC)
-    if w_exc == None:
+    
+    if  w_exc == None:
+        STDP.connect(condition="i!=j", p=connection_prob_PC)
         STDP.w = w_init
     else:
+        STDP.connect(i=w_exc.row, j=w_exc.col)
         STDP.w = w_exc.data
-    net = Network(PC,STDP)
-    net.run(800 * second, report="text")
-    #run(600 * second, report="text")
-
+        #STDP.w = w_init
+    #net = Network(PC,STDP)
+    #net.run(200 * second, report="text")
+    #device.delete()
+    run(300 * second, report="text")
+    #device.build(directory='output', compile=True, run=True, debug=False)
     weightmx = np.zeros((nPCs, nPCs))
     weightmx[STDP.i[:], STDP.j[:]] = STDP.w[:]
     return weightmx * 1e9  # *1e9 nS conversion
@@ -84,7 +91,7 @@ if __name__ == "__main__":
     linear = True
     f_in = "spike_trains_%.1f_linear.npz" % place_cell_ratio if linear else "spike_trains_%.1f.npz" % place_cell_ratio
     #f_out = "wmx_%s_%.1f_linear-itr.npz" % (STDP_mode, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)
-    f_out = "wmx_%s_%.1f_linear800.npz" % (STDP_mode, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)
+    f_out = "wmx_%s_%.1f_linear-itr300.npz" % (STDP_mode, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)
     #f_in = "intermediate_spike_trains_%.1f_linear.npz" % place_cell_ratio if linear else "intermediate_spike_trains_%.1f.npz" % place_cell_ratio
     #f_out = "intermediate_wmx_%s_%.1f_linear.npz" % (STDP_mode, place_cell_ratio) if linear else "intermediate_wmx_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)
 
@@ -106,11 +113,14 @@ if __name__ == "__main__":
     spiking_neurons, spike_times = load_spike_trains(os.path.join(base_path, "files", f_in))
     PF_pklf_name = os.path.join(base_path, "files", "PFstarts_%s_linear_itr.pkl" % place_cell_ratio) if linear else None
     try:
-        #f_in = "wmx_after_run_%s_%.1f_linear-itr.npz" % (STDP_mode_Input, place_cell_ratio) if linear else "wmx_after_run_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
-        f_in = "wmx_%s_%.1f_linear.npz" % (STDP_mode, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)
-        
+        f_in = "wmx_after_run_%s_%.1f_linear-itr20ms.npz" % (STDP_mode_Input, place_cell_ratio) if linear else "wmx_after_run_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
+        #f_in = "wmx_%s_%.1f_linear.npz" % (STDP_mode, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)
+         
         wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in))  # *1e9 nS conversion
-        wmx_PC_E = wmx_PC_E * 1*nS
+        #wmx_PC_E = wmx_PC_E / (scale_factor * 1e9)
+        wmx_PC_E = wmx_PC_E / (1e9)
+        #dense = wmx_PC_E.todense()
+        #wmx_PC_E = dense
     except:
         wmx_PC_E = None
     
