@@ -40,14 +40,14 @@ RunType = "org"
 ##############Start  of LB parameters ###############
 org_sim_len = 1000
 first_break_sim_len = 5000
-end_sim_len = 4000
-taup_sim = 20 #pre synaptic stdp constant
-taum_sim = 20 #post synaptic stdp constant
+end_sim_len = 14000
+taup_sim = 10 #pre synaptic stdp constant
+taum_sim = 10 #post synaptic stdp constant
 stdp_post_scale_factor = 1
 stdp_pre_scale_factor = 1 #Use to modify the pre / post window
 total_sim_len=org_sim_len+first_break_sim_len+end_sim_len
 Selected_PC_Index=0
-PC_SynDelay = 5 # in ms
+PC_SynDelay = 2.2 # in ms
 Cue_Param = False
 Learning_Rate = 0.001
 synaptic_zoom = 20 # The number of presynaptic connection to log on the zoom PC
@@ -307,7 +307,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     C_BC_E.connect(p=connection_prob_PC)
 
     C_BC_I = Synapses(BCs, BCs, on_pre="x_gaba+=norm_BC_I*w_BC_I", delay=delay_BC_I)
-    C_BC_I.connect(p=connection_prob_BC)
+    C_BC_I.connect(condition="i!=j",p=connection_prob_BC)
 
     SM_PC = SpikeMonitor(PCs)
     SM_BC = SpikeMonitor(BCs)
