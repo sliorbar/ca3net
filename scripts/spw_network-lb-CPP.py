@@ -12,6 +12,7 @@ from brian2.units.allunits import *
 from brian2.units.stdunits import *
 from brian2.utils.caching import *
 import numpy as np
+import scipy
 import datalayer
 import random as pyrandom
 import sqlalchemy as sql
@@ -40,14 +41,14 @@ RunType = "org"
 ##############Start  of LB parameters ###############
 org_sim_len = 1000
 first_break_sim_len = 5000
-end_sim_len = 4000
-taup_sim = 15 #pre synaptic stdp constant
-taum_sim = 15 #post synaptic stdp constant
-stdp_post_scale_factor = -0.1 # Post before pre factor - Positive number is LTD
-stdp_pre_scale_factor = -0.1    #Use to modify the pre / post window = Positive number is LTP
+end_sim_len = 24000
+taup_sim = 10 #pre synaptic stdp constant
+taum_sim = 10 #post synaptic stdp constant
+stdp_post_scale_factor = -0.2 # Post before pre factor - Positive number is LTD
+stdp_pre_scale_factor = -0.2    #Use to modify the pre / post window = Positive number is LTP
 total_sim_len=org_sim_len+first_break_sim_len+end_sim_len
 Selected_PC_Index=0
-PC_SynDelay = 5 # in ms
+PC_SynDelay = 2.2 # in ms
 Cue_Param = False
 Learning_Rate = 0.01
 synaptic_zoom = 20 # The number of presynaptic connection to log on the zoom PC
@@ -61,7 +62,7 @@ nBCs = 150
 connection_prob_PC = 0.1
 connection_prob_BC = 0.25
 
-exp_description = "Time: 1st break= " + str (first_break_sim_len) + ', total duration= ' +str(total_sim_len)  + ', org sim= ' +str(org_sim_len) + ', synanptic delay = ' +str(PC_SynDelay)+ ', stdp post scale factor = ' +str(stdp_post_scale_factor) + ', stdp pre scale factor = ' +str(stdp_pre_scale_factor) + ', cue = ' +str(Cue_Param)
+exp_description = 'Total duration= ' +str(total_sim_len)  + ', synanptic delay = ' +str(PC_SynDelay)+  ', cue = ' +str(Cue_Param)
 # synaptic time constants:
 # rise time constants
 rise_PC_E = 1.3 * ms  # Guzman 2016 (only from Fig.1 H - 20-80%)
@@ -294,7 +295,9 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
             rng = np.random.default_rng()
             Selected_PC = rng.choice(a=pc_sel)
         else:
-            Selected_PC = C_PC_E_STDP.i[Selected_PC_Index]
+            #Selected_PC = C_PC_E_STDP.i[Selected_PC_Index]
+            Selected_PC = wmx_PC_E.row[Selected_PC_Index]
+            print(Selected_PC)
         
     synapse_details= exp_description + ', Selected PC=' + str(Selected_PC) + ', Am=' + '{0:.3f}'.format(Am) + ', Ap=' + '{0:.3f}'.format(Ap) + ', taup=' + str(taup) + ', taum=' + str(taum) + ', learning_rate=' + '{0:.3f}'.format(Learning_Rate)
 
@@ -381,7 +384,9 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     subset_df["value"]=s_w["value"]
     subset_df.sort_values(by=['value'],ascending=False,inplace=True)
     subset_df = subset_df.head(synaptic_zoom)
+    #upstream_neurons = subset_df['index']
     subset_df.sort_values(by=['index'],ascending=True,inplace=True)
+    #upstream_neurons.sort_index(inplace=True)
     upstream_neurons = subset_df['index']
 
     #if syn_slice.size > 20:
@@ -466,7 +471,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     PCs_Weights_A[C_PC_E_STDP_A.i[:], C_PC_E_STDP_A.j[:]] = C_PC_E_STDP_A.w_exc[:]
     PCWf_name = os.path.join(folder,'PC_Weights_Mid')
     PCPf_name = os.path.join(folder,'PC_Weights_Diagram_Mid')
-    save_wmx(PCs_Weights, PCWf_name)
+    #save_wmx(PCs_Weights_A, PCWf_name)
     plot_wmx(PCs_Weights_A, save_name=PCPf_name)
     plot_histogram_wmx(PCs_Weights_A, save_name=PCPf_name + '_histogram')
     plot_violin(PCs_Weights, PCs_Weights_A, save_name=PCPf_name+'_diff_org_A')
@@ -511,7 +516,8 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     weightmx = np.zeros((nPCs, nPCs))
     weightmx[C_PC_E_STDP.i[:], C_PC_E_STDP.j[:]] = C_PC_E_STDP.w_exc[:]
     #weightmx =  weightmx * 1e9 #nS conversion
-    #save_wmx(weightmx, os.path.join(base_path, "files", str(expid) +'_End_'+ f_out))
+    save_wmx(weightmx, os.path.join(folder, str(expid) +'-wmx_syn_weights_PCs_End.npz'))
+    save_wmx(PCs_Weights_Diff, os.path.join(folder, str(expid) +'-wmx_syn_weights_PCs_End_Diff_.npz'))
     #save_wmx(PCs_Weights_A, os.path.join(base_path, "files", 'A_'+f_out))
     return SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC
 
@@ -669,9 +675,11 @@ if __name__ == "__main__":
     FolderDescription = str(expid) + '-' + FolderDescription
     #f_in = "wmx_%s_%.1f_2envs_linear.pkl"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
     f_in = "wmx_%s_%.1f_linear.npz"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
-    #f_in = "wmx_%s_%.1f_linear-itr300.npz"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
-    #f_in = "538_End_wmx_after_run_asym_0.5_linear-itr2.npz"
-    f_in = "wmx_rev-asym_0.5_linear.npz"
+    #f_in = "wmx_%s_%.1f_linear-itr480.npz"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
+    #f_in = "591-wmx_syn_weights_PCs_End.npz"
+    #f_in = "611-wmx_syn_weights_PCs_End.npz"
+    #f_in = "590-wmx_syn_weights_PCs_End.npz"
+    #f_in = "wmx_sym_0.5_linear480.npz"
     PF_pklf_name = os.path.join(base_path, "files", "PFstarts_%s_linear.pkl" % place_cell_ratio) if linear else None
     dir_name = os.path.join(base_path, "figures", "%.2f_replay_det_%s_%.1f" % (1, STDP_mode, place_cell_ratio)) if linear else None
     dir_name_save = os.path.join(base_path, "figures", "%.2f_replay_det_%s_%.1f" % (1, STDP_mode, place_cell_ratio) ,FolderDescription) if linear else None
@@ -683,12 +691,20 @@ if __name__ == "__main__":
     if os.path.isdir(dir_name_save) == False:
         os.mkdir(dir_name_save)
         print("dir exist: " + dir_name_save)
-    wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in))  # *1e9 nS conversion
-    #wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in))  * 0.5  # Reducing scale by 10%
+    wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in))     
+    #### Homeostasis #########
+    #x =  wmx_PC_E.todense()
+    #x = np.where(x < 0.1, 0, x)
+    #x = np.where((x >= 0.1) & (x < 2), x * 0.5, x)
+    #x = scipy.sparse.coo_matrix(x)
+    #wmx_PC_E = x
+    #wmx_PC_E[np.abs(wmx_PC_E[wmx_PC_E.nonzero()])<0.1] = 0 #Remove small values
+    wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in))  * 0.9  # Reducing scale by 10%
     #brian2.__init__
     engine = datalayer.InitializeSQLEngine()
     SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC = run_simulation(wmx_PC_E, STDP_mode, cue=cue,
                                                                                  save=save,save_slice=save_slice,expdesc=FolderDescription, engine=engine, seed=seed, verbose=verbose, folder=dir_name_save,expid=expid)
+    #device.delete()
     _ = analyse_results(SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC, seed=seed,
                         multiplier=1, linear=linear, pklf_name=PF_pklf_name, dir_name=dir_name_save, TFR=TFR,
                         save=save,save_slice=save_slice, verbose=verbose)

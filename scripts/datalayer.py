@@ -10,7 +10,7 @@ def InitializeSQLEngine():
     Create a new instance of sql engine to log experiment data
     """
 
-    engine = create_engine("mssql+pyodbc://lior_cuny:!CUNEWyork2019@CUNY")
+    engine = create_engine("mssql+pyodbc://lior_cuny:!CUNEWyork2019@CUNY2")
     return engine
 
 def InitializeTrial(engine,description,details='test'):
@@ -76,7 +76,7 @@ def SaveTrial(engine,data, tablename,expid, selected_pc = None,unpivot=False, of
     savedata['SelectedPC']=selected_pc
     savedata['expid'] = expid
     conn = engine.connect()
-    message = 'Writing to database %d rows' % (savedata.shape[0])
+    message = 'Writing to database %d rows - %s' % (savedata.shape[0], tablename)
     print(message)
     savedata.to_sql(name=tablename,con=conn,if_exists='append',chunksize=200)
     print ('finished writing to database')
