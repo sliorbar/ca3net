@@ -39,17 +39,17 @@ RunType = "org"
 
 
 ##############Start  of LB parameters ###############
-org_sim_len = 1000
-first_break_sim_len = 5000
+org_sim_len = 50
+first_break_sim_len = 5950
 end_sim_len = 24000
 taup_sim = 10 #pre synaptic stdp constant
 taum_sim = 10 #post synaptic stdp constant
-stdp_post_scale_factor = -0.2 # Post before pre factor - Positive number is LTD
-stdp_pre_scale_factor = -0.2    #Use to modify the pre / post window = Positive number is LTP
+stdp_post_scale_factor = 0.5 # Post before pre factor - Positive number is LTD
+stdp_pre_scale_factor = 0.5    #Use to modify the pre / post window = Positive number is LTP
 total_sim_len=org_sim_len+first_break_sim_len+end_sim_len
 Selected_PC_Index=0
 PC_SynDelay = 2.2 # in ms
-Cue_Param = False
+Cue_Param = True
 Learning_Rate = 0.01
 synaptic_zoom = 20 # The number of presynaptic connection to log on the zoom PC
 
@@ -699,7 +699,7 @@ if __name__ == "__main__":
     #x = scipy.sparse.coo_matrix(x)
     #wmx_PC_E = x
     #wmx_PC_E[np.abs(wmx_PC_E[wmx_PC_E.nonzero()])<0.1] = 0 #Remove small values
-    wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in))  * 0.9  # Reducing scale by 10%
+    #wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in))  * 0.9  # Reducing scale by 10%
     #brian2.__init__
     engine = datalayer.InitializeSQLEngine()
     SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC = run_simulation(wmx_PC_E, STDP_mode, cue=cue,
