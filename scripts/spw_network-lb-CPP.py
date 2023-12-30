@@ -39,19 +39,20 @@ RunType = "org"
 
 
 ##############Start  of LB parameters ###############
-org_sim_len = 50
-first_break_sim_len = 5950
+org_sim_len = 1000
+first_break_sim_len = 5000
 end_sim_len = 24000
-taup_sim = 10 #pre synaptic stdp constant
-taum_sim = 10 #post synaptic stdp constant
-stdp_post_scale_factor = 0.5 # Post before pre factor - Positive number is LTD
-stdp_pre_scale_factor = 0.5    #Use to modify the pre / post window = Positive number is LTP
+taup_sim = 20 #pre synaptic stdp constant
+taum_sim = 20 #post synaptic stdp constant
+stdp_post_scale_factor = -0.5 # Post before pre factor - Positive number is LTD
+stdp_pre_scale_factor = -0.5    #Use to modify the pre / post window = Positive number is LTP
 total_sim_len=org_sim_len+first_break_sim_len+end_sim_len
 Selected_PC_Index=0
 PC_SynDelay = 2.2 # in ms
-Cue_Param = True
+Cue_Param = False
 Learning_Rate = 0.01
 synaptic_zoom = 20 # The number of presynaptic connection to log on the zoom PC
+adapt_mult = 3.0
 
 
 ##############End of LB parameters ##############
@@ -119,6 +120,9 @@ a_PC = -0.274347065652738 * nS
 b_PC = 206.841448096415 * pA
 #a_PC = 0 * nS
 #b_PC = 0 * pA
+#Increasing adaptation by 50%
+a_PC *= adapt_mult
+b_PC *= adapt_mult
 tau_w_PC = 84.9358017225512 * ms
 """ comment this back to run with ExpIF PC model...
 # ExpIF parameters for PCs (optimized by Szabolcs)
@@ -149,6 +153,7 @@ a_BC = 3.05640210724374 * nS
 b_BC = 0.916098931234532 * pA
 #a_BC = 0 * nS
 #b_BC = 0 * pA
+
 tau_w_BC = 178.581099914024 * ms
 
 eqs_PC = """
@@ -299,7 +304,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
             Selected_PC = wmx_PC_E.row[Selected_PC_Index]
             print(Selected_PC)
         
-    synapse_details= exp_description + ', Selected PC=' + str(Selected_PC) + ', Am=' + '{0:.3f}'.format(Am) + ', Ap=' + '{0:.3f}'.format(Ap) + ', taup=' + str(taup) + ', taum=' + str(taum) + ', learning_rate=' + '{0:.3f}'.format(Learning_Rate)
+    synapse_details= exp_description + ', Selected PC=' + str(Selected_PC) + ', Am=' + '{0:.3f}'.format(Am) + ', Ap=' + '{0:.3f}'.format(Ap) + ', taup=' + str(taup) + ', taum=' + str(taum) + ', learning_rate=' + '{0:.3f}'.format(Learning_Rate) + ', adaptation mult={0:.2f}'.format(adapt_mult)
 
         
 
