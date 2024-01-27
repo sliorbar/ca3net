@@ -41,18 +41,19 @@ RunType = "org"
 ##############Start  of LB parameters ###############
 org_sim_len = 1000
 first_break_sim_len = 5000
-end_sim_len = 24000
-taup_sim = 20 #pre synaptic stdp constant
-taum_sim = 20 #post synaptic stdp constant
-stdp_post_scale_factor = -0.5 # Post before pre factor - Positive number is LTD
-stdp_pre_scale_factor = -0.5    #Use to modify the pre / post window = Positive number is LTP
+end_sim_len = 4000
+taup_sim = 10 #pre synaptic stdp constant
+taum_sim = 10 #post synaptic stdp constant
+stdp_post_scale_factor = -0.2 # Post before pre factor - Positive number is LTD
+stdp_pre_scale_factor = -0.2    #Use to modify the pre / post window = Positive number is LTP
 total_sim_len=org_sim_len+first_break_sim_len+end_sim_len
 Selected_PC_Index=0
 PC_SynDelay = 2.2 # in ms
-Cue_Param = False
+Cue_Param = True
 Learning_Rate = 0.01
 synaptic_zoom = 20 # The number of presynaptic connection to log on the zoom PC
-adapt_mult = 3.0
+adapt_mult = 1.0
+cue_start = 1000
 
 
 ##############End of LB parameters ##############
@@ -222,14 +223,20 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
         #C_PC_cue = Synapses(cue_input, PCs, on_pre="x_ampaMF+=norm_PC_MF*w_PC_MF*2")
         #C_PC_cue.connect(j="i")
         #C_PC_cue.connect()
-        num_of_neurons = 5
-        #spike_times, spiking_neurons = generate_cue_spikes()
-        spike_times, spiking_neurons = generate_cue_spikes(rate=100,rnd=200,duration=0.05,neurons=num_of_neurons)
-        cue_input = SpikeGeneratorGroup(num_of_neurons, spiking_neurons, spike_times*second + org_sim_len* ms)
+        #num_of_neurons = 5
+        num_of_neurons = 100
+        #spike_times, spiking_neurons = generate_cue_spikes(neurons=num_of_neurons)
+        #spike_times, spiking_neurons = generate_cue_spikes(rate=100,rnd=200,duration=0.05,neurons=num_of_neurons)
+        #cue_input = SpikeGeneratorGroup(num_of_neurons, spiking_neurons, spike_times*second + org_sim_len* ms)
         # connects at the end of PC pop (...end of track in linear case)
-        C_PC_cue = Synapses(cue_input, PCs, on_pre="x_ampaMF+=norm_PC_MF*w_PC_MF*2")
-        #C_PC_cue.connect(i=np.arange(0, 100), j=np.arange(7500, 7600))
-        C_PC_cue.connect(condition='i % 5 == j % 5')
+        #C_PC_cue = Synapses(cue_input, PCs, on_pre="x_ampaMF+=norm_PC_MF*w_PC_MF*2")
+        #C_PC_cue.connect(i=np.arange(0, 100), j=np.arange(4500, 4600))
+        #C_PC_cue.connect(condition='i % 5 == j % 5')
+        spike_times, spiking_neurons = generate_cue_spikes(neurons=num_of_neurons)
+        cue_input = SpikeGeneratorGroup(100, spiking_neurons, spike_times*second)
+        # connects at the end of PC pop (...end of track in linear case)
+        C_PC_cue = Synapses(cue_input, PCs, on_pre="x_ampaMF+=norm_PC_MF*w_PC_MF")
+        C_PC_cue.connect(i=np.arange(0, num_of_neurons), j=np.arange(cue_start, cue_start + 100))
 
     # weight matrix used here
     if STDP_mode == "asym":
@@ -304,7 +311,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
             Selected_PC = wmx_PC_E.row[Selected_PC_Index]
             print(Selected_PC)
         
-    synapse_details= exp_description + ', Selected PC=' + str(Selected_PC) + ', Am=' + '{0:.3f}'.format(Am) + ', Ap=' + '{0:.3f}'.format(Ap) + ', taup=' + str(taup) + ', taum=' + str(taum) + ', learning_rate=' + '{0:.3f}'.format(Learning_Rate) + ', adaptation mult={0:.2f}'.format(adapt_mult)
+    synapse_details= exp_description + ', Selected PC=' + str(Selected_PC) + ', Am=' + '{0:.3f}'.format(Am) + ', Ap=' + '{0:.3f}'.format(Ap) + ', taup=' + str(taup) + ', taum=' + str(taum) + ', learning_rate=' + '{0:.3f}'.format(Learning_Rate) + ', adaptation mult={0:.2f}'.format(adapt_mult) + ', cue start=' + str(cue_start)
 
         
 
@@ -679,11 +686,11 @@ if __name__ == "__main__":
     expid = datalayer.InitializeTrial(engine=engine,description='temp desc',details='temp detail')
     FolderDescription = str(expid) + '-' + FolderDescription
     #f_in = "wmx_%s_%.1f_2envs_linear.pkl"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
-    f_in = "wmx_%s_%.1f_linear.npz"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
+    #f_in = "wmx_%s_%.1f_linear.npz"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
     #f_in = "wmx_%s_%.1f_linear-itr480.npz"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
-    #f_in = "591-wmx_syn_weights_PCs_End.npz"
+    f_in = "591-wmx_syn_weights_PCs_End.npz" #Anti-Hebbian
     #f_in = "611-wmx_syn_weights_PCs_End.npz"
-    #f_in = "590-wmx_syn_weights_PCs_End.npz"
+    #f_in = "590-wmx_syn_weights_PCs_End.npz" #Hebbian
     #f_in = "wmx_sym_0.5_linear480.npz"
     PF_pklf_name = os.path.join(base_path, "files", "PFstarts_%s_linear.pkl" % place_cell_ratio) if linear else None
     dir_name = os.path.join(base_path, "figures", "%.2f_replay_det_%s_%.1f" % (1, STDP_mode, place_cell_ratio)) if linear else None
@@ -698,11 +705,11 @@ if __name__ == "__main__":
         print("dir exist: " + dir_name_save)
     wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in))     
     #### Homeostasis #########
-    #x =  wmx_PC_E.todense()
-    #x = np.where(x < 0.1, 0, x)
-    #x = np.where((x >= 0.1) & (x < 2), x * 0.5, x)
-    #x = scipy.sparse.coo_matrix(x)
-    #wmx_PC_E = x
+    x =  wmx_PC_E.todense()
+    x = np.where(x < 0.1, 0, x)
+    x = np.where((x >= 0.1) & (x < 2), x * 0.5, x)
+    x = scipy.sparse.coo_matrix(x)
+    wmx_PC_E = x
     #wmx_PC_E[np.abs(wmx_PC_E[wmx_PC_E.nonzero()])<0.1] = 0 #Remove small values
     #wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in))  * 0.9  # Reducing scale by 10%
     #brian2.__init__

@@ -587,7 +587,7 @@ def argmin_time_arrays(time_short, time_long):
     return [np.argmin(np.abs(time_long-t)) for t in time_short]
 
 
-def generate_cue_spikes(rate=20.0,rnd=10,duration = 0.05, neurons=11):
+def generate_cue_spikes(rate=20.0,rnd=10,duration = 0.2, neurons=11):
     """Generates short (200ms) Poisson spike train at 20Hz (with brian2's `PoissonGroup()` one can't specify the duration)"""
 
     spike_times = np.asarray(hom_poisson(rate, rnd, t_max=duration, seed=12345))

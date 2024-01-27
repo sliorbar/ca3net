@@ -10,7 +10,7 @@ def InitializeSQLEngine():
     Create a new instance of sql engine to log experiment data
     """
 
-    engine = create_engine("mssql+pyodbc://lior_cuny:!CUNEWyork2019@CUNY2")
+    engine = create_engine("mssql+pyodbc://lior_cuny:!CUNEWyork2019@CUNY2",fast_executemany=True)
     return engine
 
 def InitializeTrial(engine,description,details='test'):

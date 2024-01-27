@@ -91,6 +91,6 @@ if __name__ == "__main__":
 
     spike_trains = generate_spike_train(n_neurons, place_cell_ratio, linear=linear, ordered=ordered)
     spike_trains = refractoriness(spike_trains)  # clean spike train (based on refractory period)
-
+    spike_trains = np.array(spike_trains, dtype=object)
     npzf_name = os.path.join(base_path, "files", f_out)
     np.savez(npzf_name, spike_trains=spike_trains)
