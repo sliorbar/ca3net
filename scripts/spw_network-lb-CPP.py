@@ -22,7 +22,7 @@ from sqlalchemy import false
 from sympy import true
 prefs.codegen.target = "numpy"
 import matplotlib.pyplot as plt
-import brian2genn
+#import brian2genn
 from helper import load_wmx, preprocess_monitors, generate_cue_spikes,\
                    save_vars, save_PSD, save_TFR, save_LFP, save_replay_analysis,save_wmx,save_vars_syn,SynWeightDist,save_vars_syn_cpp
 from detect_replay import replay_circular, slice_high_activity, replay_linear
@@ -686,9 +686,9 @@ if __name__ == "__main__":
     expid = datalayer.InitializeTrial(engine=engine,description='temp desc',details='temp detail')
     FolderDescription = str(expid) + '-' + FolderDescription
     #f_in = "wmx_%s_%.1f_2envs_linear.pkl"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
-    #f_in = "wmx_%s_%.1f_linear.npz"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
+    f_in = "wmx_%s_%.1f_linear.npz"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
     #f_in = "wmx_%s_%.1f_linear-itr480.npz"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
-    f_in = "591-wmx_syn_weights_PCs_End.npz" #Anti-Hebbian
+    #f_in = "591-wmx_syn_weights_PCs_End.npz" #Anti-Hebbian
     #f_in = "611-wmx_syn_weights_PCs_End.npz"
     #f_in = "590-wmx_syn_weights_PCs_End.npz" #Hebbian
     #f_in = "wmx_sym_0.5_linear480.npz"
@@ -704,13 +704,15 @@ if __name__ == "__main__":
         os.mkdir(dir_name_save)
         print("dir exist: " + dir_name_save)
     wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in))     
-    #### Homeostasis #########
-    x =  wmx_PC_E.todense()
-    x = np.where(x < 0.1, 0, x)
-    x = np.where((x >= 0.1) & (x < 2), x * 0.5, x)
-    x = scipy.sparse.coo_matrix(x)
-    wmx_PC_E = x
+    #### Graded Homeostasis #########
+    #x =  wmx_PC_E.todense()
+    #x = np.where(x < 0.1, 0, x)
+    #x = np.where((x >= 0.1) & (x < 2), x * 0.5, x)
+    #x = scipy.sparse.coo_matrix(x)
+    #wmx_PC_E = x
     #wmx_PC_E[np.abs(wmx_PC_E[wmx_PC_E.nonzero()])<0.1] = 0 #Remove small values
+    
+    # Unifored homeostasis (Turregiano 1998)
     #wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in))  * 0.9  # Reducing scale by 10%
     #brian2.__init__
     engine = datalayer.InitializeSQLEngine()
