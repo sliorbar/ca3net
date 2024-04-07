@@ -72,7 +72,7 @@ if __name__ == "__main__":
         STDP_mode = sys.argv[2]
     except:
         STDP_mode = "sym"
-    assert STDP_mode in ["asym", "sym","rev-asym"]
+    assert STDP_mode in ["asym", "sym"]
 
     place_cell_ratio = 0.5
     linear = True
@@ -93,12 +93,6 @@ if __name__ == "__main__":
         Ap = Am = 4e-3
         wmax = 2e-8  # S
         scale_factor = 0.62
-    elif STDP_mode == "rev-asym":
-        taup = taum = 20 * ms
-        Ap = -0.01
-        Am = -Ap
-        wmax = 4e-8  # S
-        scale_factor = 1.27
     w_init = 1e-10  # S
     Ap *= wmax; Am *= wmax  # needed to reproduce Brian1 results
 
