@@ -10,7 +10,9 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "justMyCode": true
+            "cwd": "${workspaceFolder}/scripts",
+            "args": ["asym","sym", "new laptop","alt", "1000"],
+            "python": "${command:python.interpreterPath}"
         }
     ]
 }
