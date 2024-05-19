@@ -39,21 +39,21 @@ RunType = "org"
 
 
 ##############Start  of LB parameters ###############
-org_sim_len = 1000
-first_break_sim_len = 5000
-end_sim_len = 14000
-taup_sim = 20 #pre synaptic stdp constant
-taum_sim = 20 #post synaptic stdp constant
-stdp_post_scale_factor = 0.5 # Post before pre factor - Positive number is LTD
-stdp_pre_scale_factor = 0.5    #Use to modify the pre / post window = Positive number is LTP
-total_sim_len=org_sim_len+first_break_sim_len+end_sim_len
-Selected_PC_Index=0
-PC_SynDelay = 5 # in ms
-Cue_Param = False
-Learning_Rate = 0.01
+org_sim_len = 1000 # First part of the simulation - Can be used to store synaptic weights
+first_break_sim_len = 5000 #First break duration in ms can be used to store synaptic weights
+end_sim_len = 14000 #Duration in ms of entire simulation
+taup_sim = 10 #pre synaptic stdp constant
+taum_sim = 10 #post synaptic stdp constant
+stdp_post_scale_factor = 0.2 # Post before pre factor - Positive number is LTD
+stdp_pre_scale_factor = 0    #Use to modify the pre / post window = Positive number is LTP
+total_sim_len=org_sim_len+first_break_sim_len+end_sim_len #Total simulation length
+Selected_PC_Index=0 #Index of the selected PC to be used for the detailed synaptic analysis
+PC_SynDelay = 2.2 # in ms
+Cue_Param = False #True or false for cue
+Learning_Rate = 0.01 # Learning rate for STDP (Height of STDP Curve)
 synaptic_zoom = 20 # The number of presynaptic connection to log on the zoom PC
-adapt_mult = 3.0
-cue_start = 1000
+adapt_mult = 1.0 #Adaptation multiplier used for regulating the amount of times PCs spike during replay
+cue_start = 1000 #Cue start time in ms
 
 
 ##############End of LB parameters ##############
@@ -688,7 +688,7 @@ if __name__ == "__main__":
     #f_in = "wmx_%s_%.1f_2envs_linear.pkl"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
     f_in = "wmx_%s_%.1f_linear.npz"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
     #f_in = "wmx_%s_%.1f_linear-itr480.npz"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
-    f_in = "591-wmx_syn_weights_PCs_End.npz" #Anti-Hebbian
+    #f_in = "591-wmx_syn_weights_PCs_End.npz" #Anti-Hebbian
     #f_in = "611-wmx_syn_weights_PCs_End.npz"
     #f_in = "590-wmx_syn_weights_PCs_End.npz" #Hebbian
     #f_in = "wmx_sym_0.5_linear480.npz"
