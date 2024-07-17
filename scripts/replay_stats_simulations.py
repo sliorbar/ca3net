@@ -41,11 +41,11 @@ RunType = "org"
 ##############Start  of LB parameters ###############
 org_sim_len = 1000 # First part of the simulation - Can be used to store synaptic weights
 first_break_sim_len = 4000 #First break duration in ms can be used to store synaptic weights
-end_sim_len = 15000 #Duration in ms of entire simulation
+end_sim_len = 10000 #Duration in ms of entire simulation
 taup_sim = 20 #pre synaptic stdp constant
 taum_sim = 20 #post synaptic stdp constant
-stdp_post_scale_factor = 0 # Post before pre factor - Positive number is LTD
-stdp_pre_scale_factor = 0.1    #Use to modify the pre / post window - Positive number is LTP
+stdp_post_scale_factor = -0.1 # Post before pre factor - Positive number is LTD
+stdp_pre_scale_factor = -0.1    #Use to modify the pre / post window - Positive number is LTP
 total_sim_len=org_sim_len+first_break_sim_len+end_sim_len #Total simulation length
 Selected_PC_Index=0 #Index of the selected PC to be used for the detailed synaptic analysis
 PC_SynDelay = 2.2 # in ms
