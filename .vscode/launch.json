@@ -11,7 +11,7 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}/scripts",
-            "args": ["asym","sym", "new laptop","alt", "1000"],
+            "args": ["asym","sym", "new desktop Aug 8th","alt", "1000"],
             "python": "${command:python.interpreterPath}"
         }
     ]

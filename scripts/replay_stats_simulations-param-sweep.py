@@ -23,6 +23,7 @@ from sympy import true
 prefs.codegen.target = "numpy"
 import matplotlib.pyplot as plt
 import brian2cuda
+import random
 #import brian2genn
 from helper import load_wmx, preprocess_monitors, generate_cue_spikes,\
                    save_vars, save_PSD, save_TFR, save_LFP, save_replay_analysis,save_wmx,save_vars_syn,SynWeightDist,save_vars_syn_cpp
@@ -30,10 +31,10 @@ from detect_replay import replay_circular, slice_high_activity, replay_linear
 from detect_oscillations import analyse_rate, ripple_AC, ripple, gamma, calc_TFR, analyse_estimated_LFP
 from plots import plot_violin, plot_raster, plot_posterior_trajectory, plot_PSD, plot_TFR, plot_zoomed, plot_detailed, plot_LFP, set_fig_dir, plot_wmx,set_len_sim,plot_histogram_wmx, plot_Zoom_Weights,fig_dir
 
-#set_device('cpp_standalone', build_on_run=False)
+set_device('cpp_standalone', build_on_run=False)
 
-set_device("cuda_standalone", build_on_run=False)
-prefs.devices.cuda_standalone.cuda_backend.cuda_path = 'C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.5'
+#set_device("cuda_standalone", build_on_run=False)
+#prefs.devices.cuda_standalone.cuda_backend.cuda_path = 'C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.5'
 #set_device('genn', use_GPU=True, debug=True)
 #prefs.devices.genn.connectivity = 'SPARSE'
 base_path = os.path.sep.join(os.path.abspath("__file__").split(os.path.sep)[:-2])
@@ -43,16 +44,16 @@ RunType = "org"
 ##############Start  of LB parameters ###############
 org_sim_len = 1000 # First part of the simulation - Can be used to store synaptic weights
 first_break_sim_len = 4000 #First break duration in ms can be used to store synaptic weights
-end_sim_len = 10000 #Duration in ms of entire simulation
-taup_sim = 20 #pre synaptic stdp constant
-taum_sim = 20 #post synaptic stdp constant
+end_sim_len = 5000 #Duration in ms of entire simulation
+#taup_sim = 20 #pre synaptic stdp constant
+#taum_sim = 20 #post synaptic stdp constant
 stdp_post_scale_factor = -0.1 # Post before pre factor - Positive number is LTD
 stdp_pre_scale_factor = -0.1    #Use to modify the pre / post window - Positive number is LTP
 total_sim_len=org_sim_len+first_break_sim_len+end_sim_len #Total simulation length
 Selected_PC_Index=0 #Index of the selected PC to be used for the detailed synaptic analysis
-PC_SynDelay = 2.2 # in ms
+#PC_SynDelay = 2.2 # in ms
 Cue_Param = False #True or false for cue
-Learning_Rate = 0.01 # Learning rate for STDP (Height of STDP Curve)
+#Learning_Rate = 0.01 # Learning rate for STDP (Height of STDP Curve)
 synaptic_zoom = 20 # The number of presynaptic connection to log on the zoom PC
 adapt_mult = 1 #Adaptation multiplier used for regulating the amount of times PCs spike during replay
 cue_start = 1000 #Cue start time in ms
@@ -66,10 +67,10 @@ place_cell_ratio = 0.5 #Ratio of place cells to non place cells
 nPCs = 8000
 nBCs = 150
 # sparseness
-connection_prob_PC = 0.1
-connection_prob_BC = 0.25
+#connection_prob_PC = 0.1
+#connection_prob_BC = 0.25
 
-exp_description = 'Total duration= ' +str(total_sim_len)  + ', synaptic delay = ' +str(PC_SynDelay)+  ', cue = ' +str(Cue_Param)
+exp_description = 'Total duration= ' +str(total_sim_len) +  ', cue = ' +str(Cue_Param)
 # synaptic time constants:
 # rise time constants
 rise_PC_E = 1.3 * ms  # Guzman 2016 (only from Fig.1 H - 20-80%)
@@ -100,7 +101,7 @@ delay_PC_I = 1.1 * ms  # Bartos 2002
 delay_BC_E = 0.9 * ms  # Geiger 1997 (data from DG)
 delay_BC_I = 0.6 * ms  # Bartos 2002
 '''Modify the code to remove synaptic delay'''
-delay_PC_E = PC_SynDelay * ms  # Guzman 2016
+#delay_PC_E = PC_SynDelay * ms  # Guzman 2016
 
 # synaptic reversal potentials
 Erev_E = 0.0 * mV
@@ -180,7 +181,10 @@ dx_gaba/dt = -x_gaba/decay_BC_I : 1
 """
 
 
-def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = None, engine=None, verbose=True, folder=None, expid=None):
+#def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = None, engine=None, verbose=True, folder=None, expid=None):
+def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc=None, engine=None, verbose=True, folder=None, expid=None,
+                   taup_sim=20, taum_sim=20, stdp_post_scale_factor=-0.1, stdp_pre_scale_factor=-0.1, delay_PC_E=2.2, Learning_Rate=0.01,connection_prob_PC = 0.1, connection_prob_BC = 0.25):
+
     """
     Sets up the network and runs simulation
     :param wmx_PC_E: np.array representing the recurrent excitatory synaptic weight matrix
@@ -232,7 +236,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
         taup = taup_sim * ms 
         taum = taum_sim * ms
         Ap = Learning_Rate
-        Am = -Ap * stdp_post_scale_factor # Post syn stdp 
+        Am = Ap * stdp_post_scale_factor # Post syn stdp 
         Ap = Ap * stdp_pre_scale_factor
         #wmax = 2e-8  # S
         scale_factor = 1.27
@@ -267,7 +271,10 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     PCs_Weights_A = np.zeros((nPCs, nPCs))
     PCs_Weights_B = np.zeros((nPCs, nPCs))
     PCs_Weights_Diff = np.zeros((nPCs, nPCs))
-    
+    synapse_details= exp_description + ', synaptic delay = {0:.2f}'.format(delay_PC_E)+ ', Am=' + '{0:.3f}'.format(Am) + ', Ap=' + '{0:.3f}'.format(Ap) + ', taup=' + str(taup) + ', taum=' + str(taum) + ', learning_rate=' + '{0:.3f}'.format(Learning_Rate) + ', adaptation mult={0:.2f}'.format(adapt_mult) + ', cue start=' + str(cue_start) + ' , STDP mode=' + STDP_mode + ', connection_prob_PC=' + '{0:.2f}'.format(connection_prob_PC) + ', connection_prob_BC=' + '{0:.2f}'.format(connection_prob_BC)
+    print(synapse_details)
+
+    delay_PC_E = delay_PC_E * ms
     if RunType == "org":
         C_PC_E = Synapses(PCs, PCs, "w_exc:1", on_pre="x_ampa+=norm_PC_E*w_exc", delay=delay_PC_E)
         C_PC_E.connect(i=wmx_PC_E.row, j=wmx_PC_E.col)
@@ -287,7 +294,6 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
             Selected_PC = wmx_PC_E.row[Selected_PC_Index]
             print(Selected_PC)
         
-    synapse_details= exp_description + ', Selected PC=' + str(Selected_PC) + ', Am=' + '{0:.3f}'.format(Am) + ', Ap=' + '{0:.3f}'.format(Ap) + ', taup=' + str(taup) + ', taum=' + str(taum) + ', learning_rate=' + '{0:.3f}'.format(Learning_Rate) + ', adaptation mult={0:.2f}'.format(adapt_mult) + ', cue start=' + str(cue_start)
 
         
 
@@ -384,46 +390,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
         net.run(end_sim_len*ms)
     
     device.build(directory='output', compile=True, run=True, debug=True)
-            
-    '''
-    PCs_Weights_A[C_PC_E_STDP_A.i[:], C_PC_E_STDP_A.j[:]] = C_PC_E_STDP_A.w_exc[:]
-    PCWf_name = os.path.join(folder,'PC_Weights_Mid')
-    PCPf_name = os.path.join(folder,'PC_Weights_Diagram_Mid')
-    plot_wmx(PCs_Weights_A, save_name=PCPf_name)
-    plot_histogram_wmx(PCs_Weights_A, save_name=PCPf_name + '_histogram')
-    plot_violin(PCs_Weights, PCs_Weights_A, save_name=PCPf_name+'_diff_org_A')
     
-    if RunType == "org":
-        PCs_Weights_B[C_PC_E.i[:], C_PC_E.j[:]] = C_PC_E.w_exc[:]
-    else:
-        PCs_Weights_B[C_PC_E_STDP.i[:], C_PC_E_STDP.j[:]] = C_PC_E_STDP.w_exc[:]
-    
-    PCWf_name = os.path.join(folder,'PC_Weights_end')
-    PCPf_name = os.path.join(folder,'PC_Weights_Diagram_end')
-    #save_wmx(PCs_Weights, PCWf_name)
-    plot_wmx(PCs_Weights_B, save_name=PCPf_name)
-    #plot_histogram_wmx(PCs_Weights_B, save_name=PCPf_name + '_histogram')
-    plot_violin(PCs_Weights, PCs_Weights_B, save_name=PCPf_name+'_diff_org_B')
-    plot_violin(PCs_Weights_A, PCs_Weights_B, save_name=PCPf_name+'_diff_A_B')
-    #plot_Zoom_Weights(w=C_PC_E_SM,save_name=PCPf_name+ "_B")
-    
-    PCs_Weights_Diff = PCs_Weights - PCs_Weights_B
-    PCs_Weights_Diff_A = PCs_Weights - PCs_Weights_A
-    plot_wmx(PCs_Weights_Diff, save_name=PCPf_name+"_diff")
-    plot_wmx(PCs_Weights_Diff_A, save_name=PCPf_name+"_diff_A")   
-    df_PCs = SynWeightDist(PCs_Weights)
-    df_PCs_A = SynWeightDist(PCs_Weights_A)
-    df_PCs_B = SynWeightDist(PCs_Weights_B)
-    df_PCs_Diff = SynWeightDist(PCs_Weights_Diff)
-    df_PCs_Diff_A = SynWeightDist(PCs_Weights_Diff_A)
-
-    if RunType != "org":
-        datalayer.SaveTrial(engine=engine,data=df_PCs,tablename='SynWeightsStats',expid=expid,selected_pc=0)
-        datalayer.SaveTrial(engine=engine,data=df_PCs_A,tablename='SynWeightsStats',expid=expid,selected_pc=-1)
-        datalayer.SaveTrial(engine=engine,data=df_PCs_B,tablename='SynWeightsStats',expid=expid,selected_pc=-2)
-        datalayer.SaveTrial(engine=engine,data=df_PCs_Diff,tablename='SynWeightsStats',expid=expid,selected_pc=-100)
-        datalayer.SaveTrial(engine=engine,data=df_PCs_Diff_A,tablename='SynWeightsStats',expid=expid,selected_pc=-99)
-    '''
     if save:
         save_vars(SM_PC, RM_PC, StateM_PC, selection, seed)
     if save_slice and RunType != "org" :
@@ -432,17 +399,23 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     # For iteration with the matrix - Save the synaptic weights
     f_out = "wmx_after_run_%s_%.1f_linear-itr2.npz" % (STDP_mode, place_cell_ratio) if linear else "wmx_after_run_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)
     weightmx = np.zeros((nPCs, nPCs))
+    # Set values larger than 1e-10
+    min_val = 0
+    mask = C_PC_E_STDP.w_exc[:] > min_val # Create a mask for values greater than 1e-10 * 0.62
     weightmx[C_PC_E_STDP.i[:], C_PC_E_STDP.j[:]] = C_PC_E_STDP.w_exc[:]
+    #weightmx[C_PC_E_STDP.i[mask], C_PC_E_STDP.j[mask]] = C_PC_E_STDP.w_exc[mask]
     #weightmx =  weightmx * 1e9 #nS conversion
+    #PCs_Weights_filtered = np.where(PCs_Weights > min_val, PCs_Weights, 0)
     save_wmx(weightmx, os.path.join(folder, str(expid) +'-wmx_syn_weights_PCs_End.npz'))
-    save_wmx(PCs_Weights_Diff, os.path.join(folder, str(expid) +'-wmx_syn_weights_PCs_End_Diff_.npz'))
+    save_wmx(PCs_Weights, os.path.join(folder, str(expid) +'-wmx_syn_weights_PCs_start.npz'))
     #save_wmx(PCs_Weights_A, os.path.join(base_path, "files", 'A_'+f_out))
     return SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC
 
 
 
-if __name__ == "__main__":
+    
 
+if __name__ == "__main__":
     try:
         STDP_mode = sys.argv[1]
         STDP_mode_Input = sys.argv[2]
@@ -451,106 +424,87 @@ if __name__ == "__main__":
         Selected_PC_Index = int(sys.argv[5])
     except:
         STDP_mode = "sym"
+    
     assert STDP_mode in ["sym", "asym"]
     assert RunT in ["org", "alt"]
-    RunType = RunT
-    save = False
-    save_slice=True
-    cue = Cue_Param
-    verbose = True 
-    TFR = False
-    linear = True
-    place_cell_ratio = 0.5
-    seed = 12345
-    engine = datalayer.InitializeSQLEngine()
     
-    expid = datalayer.InitializeTrial(engine=engine,description='temp desc',details='temp detail')
-    print(expid)
-    FolderDescription = str(expid) + '-' + FolderDescription
-    
-    f_in = "wmx_%s_%.1f_linear.npz"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
-    PF_pklf_name = os.path.join(base_path, "files", "PFstarts_%s_linear.pkl" % place_cell_ratio) if linear else None
-    dir_name = os.path.join(base_path, "figures", "%.2f_replay_det_%s_%.1f" % (1, STDP_mode, place_cell_ratio)) if linear else None
-    dir_name_save = os.path.join(base_path, "figures", "%.2f_replay_det_%s_%.1f" % (1, STDP_mode, place_cell_ratio) ,FolderDescription) if linear else None
-    set_fig_dir(dir_name_save)
-    set_len_sim(total_sim_len)
-    if os.path.isdir(dir_name) == False:
-        os.mkdir(dir_name)
-
-    if os.path.isdir(dir_name_save) == False:
-        os.mkdir(dir_name_save)
-        print("dir exist: " + dir_name_save)
-    wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in))     
-    engine = datalayer.InitializeSQLEngine()
-    SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC = run_simulation(wmx_PC_E, STDP_mode, cue=cue,
-                                                                                save=save,save_slice=save_slice,expdesc=FolderDescription, engine=engine, seed=seed, verbose=verbose, folder=dir_name_save,expid=expid)
-        
-    device.delete()
-    plt.show()
-  
-
-
-'''
-def parse_arguments(args):
-    try:
-        STDP_mode = args[0]
-        STDP_mode_Input = args[1]
-        FolderDescription = args[2]
-        RunT = args[3]
-        Selected_PC_Index = int(args[4])
-    except:
-        STDP_mode = "sym"
-    assert STDP_mode in ["sym", "asym"]
-    assert RunT in ["org", "alt"]
-    return STDP_mode, STDP_mode_Input, FolderDescription, RunT, Selected_PC_Index
-
-def initialize_simulation(STDP_mode, STDP_mode_Input, FolderDescription, RunT):
     RunType = RunT
     save = False
     save_slice = True
     cue = Cue_Param
-    verbose = True
+    verbose = True 
     TFR = False
     linear = True
-    place_cell_ratio = 0.5
     seed = 12345
+
+    # Set ranges for each parameter
+    taup_sim_range = (5, 30)  # Example range for taup_sim
+    taum_sim_range = (5, 30)  # Example range for taum_sim
+    stdp_post_scale_factor_range = (-1.0, 1.0)  # Example range for stdp_post_scale_factor
+    stdp_pre_scale_factor_range = (-1.0, 1.0)  # Example range for stdp_pre_scale_factor
+    PC_SynDelay_range = (2.2, 3)  # Example range for PC_SynDelay
+    Learning_Rate_range = (0.005, 0.05)  # Example range for Learning_Rate
+    place_cell_ratio_range = (0.5, 0.501)  # Example range for place_cell_ratio
+    connection_prob_PC_range = (0.1,0.101)
+    connection_prob_BC_range = (0.25,0.2501)
+
+    # Number of Monte Carlo simulations to run
+    #num_simulations = 5
+
+    # Initialize SQL engine
     engine = datalayer.InitializeSQLEngine()
-    expid = datalayer.InitializeTrial(engine=engine, description='temp desc', details='temp detail')
-    FolderDescription = f"{expid}-{FolderDescription}"
+
+    # Randomly select parameters from the defined ranges
+    taup_sim = random.uniform(*taup_sim_range)
+    taum_sim = random.uniform(*taum_sim_range)
+    #stdp_post_scale_factor = random.uniform(*stdp_post_scale_factor_range)
+    stdp_pre_scale_factor = random.uniform(*stdp_pre_scale_factor_range) 
+    
+    # Make stdp kernel asymmetric
+    stdp_post_scale_factor = stdp_pre_scale_factor *-1
+    stdp_post_scale_factor = stdp_pre_scale_factor # symmetric STDP
+    taum_sim = taup_sim
+    
+    PC_SynDelay = random.uniform(*PC_SynDelay_range)
+    Learning_Rate = random.uniform(*Learning_Rate_range)
+    #place_cell_ratio = random.uniform(*place_cell_ratio_range)
+    #connection_prob_PC = random.uniform(*connection_prob_PC_range)
+    #connection_prob_BC = random.uniform(*connection_prob_BC_range)
+    connection_prob_PC = 0.1
+    connection_prob_BC = 0.25
+    place_cell_ratio = 0.5
+
+    # Update folder description for each combination
+    expid = datalayer.InitializeTrial(engine=engine, description='Monte Carlo Simulation', 
+                                        details=f'taup_sim={taup_sim}, taum_sim={taum_sim}, PC_SynDelay={PC_SynDelay}')
+    FolderDescription = f"{expid}-{FolderDescription}-MC_taup_{taup_sim:.2f}_taum_{taum_sim:.2f}_delay_{PC_SynDelay:.2f}"
+    
+    # Set input and output file names based on current parameters
     f_in = f"wmx_{STDP_mode_Input}_{place_cell_ratio:.1f}_linear.npz" if linear else f"wmx_{STDP_mode_Input}_{place_cell_ratio:.1f}.pkl"
     PF_pklf_name = os.path.join(base_path, "files", f"PFstarts_{place_cell_ratio}_linear.pkl") if linear else None
     dir_name = os.path.join(base_path, "figures", f"{1:.2f}_replay_det_{STDP_mode}_{place_cell_ratio:.1f}") if linear else None
-    dir_name_save = os.path.join(dir_name, FolderDescription) if linear else None
-    set_fig_dir(dir_name_save)
-    set_len_sim(total_sim_len)
-    create_directory(dir_name)
-    create_directory(dir_name_save)
-    return engine, f_in, dir_name_save, cue, save, save_slice, verbose, seed, expid
-
-def create_directory(path):
-    if not os.path.isdir(path):
-        os.mkdir(path)
-        print(f"Directory created: {path}")
-
-def load_weights(file_path):
-    return load_wmx(file_path)
-
-def run_simulation_and_save_results(engine, wmx_PC_E, STDP_mode, cue, save, save_slice, FolderDescription, verbose, dir_name_save, expid, seed):
+    dir_name_save = os.path.join(base_path, "figures", f"{1:.2f}_replay_det_{STDP_mode}_{place_cell_ratio:.1f}", FolderDescription) if linear else None
+    
+    # Ensure directories exist
+    if not os.path.isdir(dir_name):
+        os.mkdir(dir_name)
+    if not os.path.isdir(dir_name_save):
+        os.mkdir(dir_name_save)
+        print("Created dir: " + dir_name_save)
+    
+    # Load weight matrix
+    wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in))
+    
+    # Run simulation with the randomly selected parameters
     SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC = run_simulation(
         wmx_PC_E, STDP_mode, cue=cue, save=save, save_slice=save_slice, expdesc=FolderDescription,
-        engine=engine, seed=seed, verbose=verbose, folder=dir_name_save, expid=expid
-    )
-    return SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC
+        engine=engine, seed=seed, verbose=verbose, folder=dir_name_save, expid=expid,
+        taup_sim=taup_sim, taum_sim=taum_sim, stdp_post_scale_factor=stdp_post_scale_factor, 
+        stdp_pre_scale_factor=stdp_pre_scale_factor, delay_PC_E=PC_SynDelay, Learning_Rate=Learning_Rate,connection_prob_PC=connection_prob_PC,connection_prob_BC=connection_prob_BC)
+    
 
-def main(args):
-    STDP_mode, STDP_mode_Input, FolderDescription, RunT, Selected_PC_Index = parse_arguments(args)
-    engine, f_in, dir_name_save, cue, save, save_slice, verbose, seed, expid = initialize_simulation(
-        STDP_mode, STDP_mode_Input, FolderDescription, RunT
-    )
-    wmx_PC_E = load_weights(os.path.join(base_path, "files", f_in))
-    SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC = run_simulation_and_save_results(
-        engine, wmx_PC_E, STDP_mode, cue, save, save_slice, FolderDescription, verbose, dir_name_save, expid, seed
-    )
     device.delete()
     plt.show()
-'''
+
+  
+

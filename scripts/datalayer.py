@@ -9,8 +9,16 @@ def InitializeSQLEngine():
     """
     Create a new instance of sql engine to log experiment data
     """
+    server = 'LB_Desktop'  # e.g., 'localhost\SQLEXPRESS'
+    database = 'CUNY'
+    username = 'lior_cuny'
+    password = '!CUNEWyork2018'
 
-    engine = create_engine("mssql+pyodbc://lior_cuny:!CUNEWyork2019@CUNY2",fast_executemany=True)
+# Create the connection string
+    conn_str = f'mssql+pyodbc://{username}:{password}@{server}/{database}?driver=ODBC+Driver+17+for+SQL+Server'
+
+    #engine = create_engine("mssql+pyodbc://lior_cuny:!CUNEWyork2018@lior_cuny",fast_executemany=True)
+    engine = create_engine(conn_str,fast_executemany=True)
     return engine
 
 def InitializeTrial(engine,description,details='test'):
@@ -29,6 +37,7 @@ def InitializeTrial(engine,description,details='test'):
         for row in query_result:
             result = row[0]
 
+        conn.commit()
         conn.close()
     return result
 
@@ -45,6 +54,7 @@ def UpdateTrial(engine,expid, description,details='test'):
     with engine.connect() as conn:
         conn.execute(text(querytext))
         #query_result = conn.execute(text(expridtext))
+        conn.commit()
         conn.close()
     return 
 
@@ -53,7 +63,7 @@ def SaveTrial(engine,data, tablename,expid, selected_pc = None,unpivot=False, of
     Create a new entry to log experiment data
     """
     #engine1 = InitializeSQLEngine()
-    
+    print('Saving data: ' + tablename)
     
     if unpivot:
         savedata = df(data,index=dfIndex)
@@ -79,6 +89,7 @@ def SaveTrial(engine,data, tablename,expid, selected_pc = None,unpivot=False, of
     message = 'Writing to database %d rows - %s' % (savedata.shape[0], tablename)
     print(message)
     savedata.to_sql(name=tablename,con=conn,if_exists='append',chunksize=200)
+    conn.commit()
     print ('finished writing to database')
     conn.close()
 
@@ -96,5 +107,6 @@ def CloseTrial(engine,expid = 0):
     with engine.connect() as conn:
         query_result = conn.execute(text(expridtext))
         
+        conn.commit()
         conn.close()
     return query_result

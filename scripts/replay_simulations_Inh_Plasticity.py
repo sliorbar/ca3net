@@ -30,9 +30,9 @@ from detect_replay import replay_circular, slice_high_activity, replay_linear
 from detect_oscillations import analyse_rate, ripple_AC, ripple, gamma, calc_TFR, analyse_estimated_LFP
 from plots import plot_violin, plot_raster, plot_posterior_trajectory, plot_PSD, plot_TFR, plot_zoomed, plot_detailed, plot_LFP, set_fig_dir, plot_wmx,set_len_sim,plot_histogram_wmx, plot_Zoom_Weights,fig_dir
 
-#set_device('cpp_standalone', build_on_run=False)
+set_device('cpp_standalone', build_on_run=False)
 
-set_device("cuda_standalone", build_on_run=False)
+#set_device("cuda_standalone", build_on_run=False)
 prefs.devices.cuda_standalone.cuda_backend.cuda_path = 'C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.5'
 #set_device('genn', use_GPU=True, debug=True)
 #prefs.devices.genn.connectivity = 'SPARSE'
@@ -43,7 +43,7 @@ RunType = "org"
 ##############Start  of LB parameters ###############
 org_sim_len = 1000 # First part of the simulation - Can be used to store synaptic weights
 first_break_sim_len = 4000 #First break duration in ms can be used to store synaptic weights
-end_sim_len = 10000 #Duration in ms of entire simulation
+end_sim_len = 5000 #Duration in ms of entire simulation
 taup_sim = 20 #pre synaptic stdp constant
 taum_sim = 20 #post synaptic stdp constant
 stdp_post_scale_factor = -0.1 # Post before pre factor - Positive number is LTD
@@ -488,69 +488,4 @@ if __name__ == "__main__":
     device.delete()
     plt.show()
   
-
-
-'''
-def parse_arguments(args):
-    try:
-        STDP_mode = args[0]
-        STDP_mode_Input = args[1]
-        FolderDescription = args[2]
-        RunT = args[3]
-        Selected_PC_Index = int(args[4])
-    except:
-        STDP_mode = "sym"
-    assert STDP_mode in ["sym", "asym"]
-    assert RunT in ["org", "alt"]
-    return STDP_mode, STDP_mode_Input, FolderDescription, RunT, Selected_PC_Index
-
-def initialize_simulation(STDP_mode, STDP_mode_Input, FolderDescription, RunT):
-    RunType = RunT
-    save = False
-    save_slice = True
-    cue = Cue_Param
-    verbose = True
-    TFR = False
-    linear = True
-    place_cell_ratio = 0.5
-    seed = 12345
-    engine = datalayer.InitializeSQLEngine()
-    expid = datalayer.InitializeTrial(engine=engine, description='temp desc', details='temp detail')
-    FolderDescription = f"{expid}-{FolderDescription}"
-    f_in = f"wmx_{STDP_mode_Input}_{place_cell_ratio:.1f}_linear.npz" if linear else f"wmx_{STDP_mode_Input}_{place_cell_ratio:.1f}.pkl"
-    PF_pklf_name = os.path.join(base_path, "files", f"PFstarts_{place_cell_ratio}_linear.pkl") if linear else None
-    dir_name = os.path.join(base_path, "figures", f"{1:.2f}_replay_det_{STDP_mode}_{place_cell_ratio:.1f}") if linear else None
-    dir_name_save = os.path.join(dir_name, FolderDescription) if linear else None
-    set_fig_dir(dir_name_save)
-    set_len_sim(total_sim_len)
-    create_directory(dir_name)
-    create_directory(dir_name_save)
-    return engine, f_in, dir_name_save, cue, save, save_slice, verbose, seed, expid
-
-def create_directory(path):
-    if not os.path.isdir(path):
-        os.mkdir(path)
-        print(f"Directory created: {path}")
-
-def load_weights(file_path):
-    return load_wmx(file_path)
-
-def run_simulation_and_save_results(engine, wmx_PC_E, STDP_mode, cue, save, save_slice, FolderDescription, verbose, dir_name_save, expid, seed):
-    SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC = run_simulation(
-        wmx_PC_E, STDP_mode, cue=cue, save=save, save_slice=save_slice, expdesc=FolderDescription,
-        engine=engine, seed=seed, verbose=verbose, folder=dir_name_save, expid=expid
-    )
-    return SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC
-
-def main(args):
-    STDP_mode, STDP_mode_Input, FolderDescription, RunT, Selected_PC_Index = parse_arguments(args)
-    engine, f_in, dir_name_save, cue, save, save_slice, verbose, seed, expid = initialize_simulation(
-        STDP_mode, STDP_mode_Input, FolderDescription, RunT
-    )
-    wmx_PC_E = load_weights(os.path.join(base_path, "files", f_in))
-    SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC = run_simulation_and_save_results(
-        engine, wmx_PC_E, STDP_mode, cue, save, save_slice, FolderDescription, verbose, dir_name_save, expid, seed
-    )
-    device.delete()
-    plt.show()
-'''
+    datalayer.CloseTrial(engine=engine,expid=expid)

@@ -8,4 +8,6 @@ bluepyopt
 PyWavelets
 tqdm
 opencv-python
-brian2cuda
+pyodbc
+sqlalchemy
+
