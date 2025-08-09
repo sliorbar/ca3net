@@ -22,18 +22,16 @@ from sqlalchemy import false
 from sympy import true
 prefs.codegen.target = "numpy"
 import matplotlib.pyplot as plt
-import brian2cuda
 #import brian2genn
 from helper import load_wmx, preprocess_monitors, generate_cue_spikes,\
                    save_vars, save_PSD, save_TFR, save_LFP, save_replay_analysis,save_wmx,save_vars_syn,SynWeightDist,save_vars_syn_cpp
 from detect_replay import replay_circular, slice_high_activity, replay_linear
 from detect_oscillations import analyse_rate, ripple_AC, ripple, gamma, calc_TFR, analyse_estimated_LFP
 from plots import plot_violin, plot_raster, plot_posterior_trajectory, plot_PSD, plot_TFR, plot_zoomed, plot_detailed, plot_LFP, set_fig_dir, plot_wmx,set_len_sim,plot_histogram_wmx, plot_Zoom_Weights,fig_dir
-
 #set_device('cpp_standalone', build_on_run=False)
+set_device('cpp_standalone', build_on_run=False)
 
-set_device("cuda_standalone", build_on_run=False)
-prefs.devices.cuda_standalone.cuda_backend.cuda_path = 'C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.5'
+#set_device("cuda_standalone")
 #set_device('genn', use_GPU=True, debug=True)
 #prefs.devices.genn.connectivity = 'SPARSE'
 base_path = os.path.sep.join(os.path.abspath("__file__").split(os.path.sep)[:-2])
@@ -43,10 +41,10 @@ RunType = "org"
 ##############Start  of LB parameters ###############
 org_sim_len = 1000 # First part of the simulation - Can be used to store synaptic weights
 first_break_sim_len = 4000 #First break duration in ms can be used to store synaptic weights
-end_sim_len = 10000 #Duration in ms of entire simulation
+end_sim_len = 5000 #Duration in ms of entire simulation
 taup_sim = 20 #pre synaptic stdp constant
 taum_sim = 20 #post synaptic stdp constant
-stdp_post_scale_factor = -0.1 # Post before pre factor - Positive number is LTD
+stdp_post_scale_factor = 0.1 # Post before pre factor - Positive number is LTD
 stdp_pre_scale_factor = -0.1    #Use to modify the pre / post window - Positive number is LTP
 total_sim_len=org_sim_len+first_break_sim_len+end_sim_len #Total simulation length
 Selected_PC_Index=0 #Index of the selected PC to be used for the detailed synaptic analysis
@@ -465,7 +463,6 @@ if __name__ == "__main__":
     engine = datalayer.InitializeSQLEngine()
     
     expid = datalayer.InitializeTrial(engine=engine,description='temp desc',details='temp detail')
-    print(expid)
     FolderDescription = str(expid) + '-' + FolderDescription
     
     f_in = "wmx_%s_%.1f_linear.npz"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)

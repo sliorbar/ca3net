@@ -313,22 +313,21 @@ def save_vars_syn_cpp(SpikeM, StateM, RateM, subset, selected_pc, folder, f_name
         wexc_s[subset['pc'][rec]] = arr.flatten()
     BCs["t"] =spike_times_bc  # *1000 ms conversion
     BCs["BC"] = spiking_neurons_bc
-    PSCs["Spike_Time"] = spike_times  # *1000 ms conversion
-    PSCs["PC_ID"] = spiking_neurons
-    spikedata = pd.DataFrame(PSCs)
-    spikedata = spikedata.sort_values(by=['PC_ID', 'Spike_Time'])
+    PSCs["t"] = spike_times  # *1000 ms conversion
+    PSCs["PC"] = spiking_neurons
 
-    # Use groupby().shift() to get the previous spike time for each PC
-    spikedata['Previous_Spike_Time'] = spikedata.groupby('PC_ID')['Spike_Time'].shift(1)
-    BC_spikedata = pd.DataFrame(BCs)
-    BC_spikedata = BC_spikedata.sort_values(by=['BC', 't'])
-    BC_spikedata['Previous_Spike_Time'] = BC_spikedata.groupby('BC')['t'].shift(1)
-
-
-
-    datalayer.SaveTrial(engine=engine,data=BC_spikedata,tablename='BCs',expid=expid)
-    datalayer.SaveTrial(engine=engine,data=spikedata,tablename='SpikeData',expid=expid)
+    #datalayer.SaveTrial(engine=engine,data=ws,tablename='ws',expid=expid,selected_pc=selected_pc, unpivot=True)
+    datalayer.SaveTrial(engine=engine,data=spike_times,tablename='spike_times',expid=expid)
+    datalayer.SaveTrial(engine=engine,data=spiking_neurons,tablename='spiking_neurons',expid=expid)
+    datalayer.SaveTrial(engine=engine,data=rate,tablename='rate',expid=expid)
+    datalayer.SaveTrial(engine=engine,data=BCs,tablename='BCs',expid=expid)
+    datalayer.SaveTrial(engine=engine,data=PSCs,tablename='PSCs',expid=expid)
     datalayer.SaveTrial(engine=engine,data=wexc_s,tablename='wexc_s',expid=expid,selected_pc=selected_pc,unpivot=True, offset=offset,dfIndex=dfIndex)
+    #datalayer.SaveTrial(engine=engine,data=wexc_s,tablename='wexc_s_raw',expid=expid)
+    #if runType != "org":
+        #datalayer.SaveTrial(engine=engine,data=Apostsyn,tablename='Apostsyn_raw',expid=expid)
+        #datalayer.SaveTrial(engine=engine,data=Apresyn,tablename='Apresyn_raw',expid=expid)
+    #datalayer.SaveTrial(engine=engine,data=SynTime,tablename='SynTime',expid=expid)
     results = {"spike_times": spike_times, "spiking_neurons": spiking_neurons, "rate": rate,
                "ws": ws, "PSCs": PSCs, "wexc_s": wexc_s}
     if os.path.isdir(folder) == False:

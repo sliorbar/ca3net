@@ -9,7 +9,9 @@ def InitializeSQLEngine():
     """
     Create a new instance of sql engine to log experiment data
     """
-    server = 'LB_Desktop'  # e.g., 'localhost\SQLEXPRESS'
+    #server = 'LB_ASUS_2022'  # e.g., 'localhost\SQLEXPRESS'
+    server = 'LB_Desktop'
+    #database = 'CUNY'
     database = 'CUNY'
     username = 'lior_cuny'
     password = '!CUNEWyork2018'
@@ -17,7 +19,7 @@ def InitializeSQLEngine():
 # Create the connection string
     conn_str = f'mssql+pyodbc://{username}:{password}@{server}/{database}?driver=ODBC+Driver+17+for+SQL+Server'
 
-    #engine = create_engine("mssql+pyodbc://lior_cuny:!CUNEWyork2018@lior_cuny",fast_executemany=True)
+    #engine = create_engine("mssql+pyodbc://lior_cuny:!CUNEWyork2019@CUNY2",fast_executemany=True)
     engine = create_engine(conn_str,fast_executemany=True)
     return engine
 
@@ -83,12 +85,12 @@ def SaveTrial(engine,data, tablename,expid, selected_pc = None,unpivot=False, of
         savedata = df(data)
     if savedata.columns.size > 100:
         savedata=savedata.iloc[:,0:100]
-    savedata['SelectedPC']=selected_pc
+    #savedata['SelectedPC']=selected_pc
     savedata['expid'] = expid
     conn = engine.connect()
     message = 'Writing to database %d rows - %s' % (savedata.shape[0], tablename)
     print(message)
-    savedata.to_sql(name=tablename,con=conn,if_exists='append',chunksize=200)
+    savedata.to_sql(name=tablename,con=conn,if_exists='append',chunksize=2000, index=False)
     conn.commit()
     print ('finished writing to database')
     conn.close()

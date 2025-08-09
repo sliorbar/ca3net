@@ -22,7 +22,9 @@ from sqlalchemy import false
 from sympy import true
 prefs.codegen.target = "numpy"
 import matplotlib.pyplot as plt
-import brian2cuda
+#import brian2cuda
+import random
+from scipy.sparse import coo_matrix
 #import brian2genn
 from helper import load_wmx, preprocess_monitors, generate_cue_spikes,\
                    save_vars, save_PSD, save_TFR, save_LFP, save_replay_analysis,save_wmx,save_vars_syn,SynWeightDist,save_vars_syn_cpp
@@ -32,10 +34,7 @@ from plots import plot_violin, plot_raster, plot_posterior_trajectory, plot_PSD,
 
 set_device('cpp_standalone', build_on_run=False)
 
-#set_device("cuda_standalone", build_on_run=False)
-prefs.devices.cuda_standalone.cuda_backend.cuda_path = 'C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.5'
-#set_device('genn', use_GPU=True, debug=True)
-#prefs.devices.genn.connectivity = 'SPARSE'
+
 base_path = os.path.sep.join(os.path.abspath("__file__").split(os.path.sep)[:-2])
 RunType = "org"
 
@@ -44,20 +43,20 @@ RunType = "org"
 org_sim_len = 1000 # First part of the simulation - Can be used to store synaptic weights
 first_break_sim_len = 4000 #First break duration in ms can be used to store synaptic weights
 end_sim_len = 5000 #Duration in ms of entire simulation
-taup_sim = 20 #pre synaptic stdp constant
-taum_sim = 20 #post synaptic stdp constant
-stdp_post_scale_factor = -0.1 # Post before pre factor - Positive number is LTD
-stdp_pre_scale_factor = -0.1    #Use to modify the pre / post window - Positive number is LTP
+#taup_sim = 20 #pre synaptic stdp constant
+#taum_sim = 20 #post synaptic stdp constant
+#stdp_post_scale_factor = -0.1 # Post before pre factor - Positive number is LTD
+#stdp_pre_scale_factor = -0.1    #Use to modify the pre / post window - Positive number is LTP
 total_sim_len=org_sim_len+first_break_sim_len+end_sim_len #Total simulation length
 Selected_PC_Index=0 #Index of the selected PC to be used for the detailed synaptic analysis
 PC_SynDelay = 2.2 # in ms
 Cue_Param = False #True or false for cue
-Learning_Rate = 0.01 # Learning rate for STDP (Height of STDP Curve)
+#Learning_Rate = 0.01 # Learning rate for STDP (Height of STDP Curve)
 synaptic_zoom = 20 # The number of presynaptic connection to log on the zoom PC
 adapt_mult = 1 #Adaptation multiplier used for regulating the amount of times PCs spike during replay
 cue_start = 1000 #Cue start time in ms
-trials = 2 #Number of trials to run
-org_run=0 #Run the original simulation
+#trials = 2 #Number of trials to run
+#org_run=0 #Run the original simulation
 place_cell_ratio = 0.5 #Ratio of place cells to non place cells
 
 
@@ -66,10 +65,10 @@ place_cell_ratio = 0.5 #Ratio of place cells to non place cells
 nPCs = 8000
 nBCs = 150
 # sparseness
-connection_prob_PC = 0.1
-connection_prob_BC = 0.25
+#connection_prob_PC = 0.1
+#connection_prob_BC = 0.25
 
-exp_description = 'Total duration= ' +str(total_sim_len)  + ', synaptic delay = ' +str(PC_SynDelay)+  ', cue = ' +str(Cue_Param)
+exp_description = 'Total duration= ' +str(total_sim_len) +  ', cue = ' +str(Cue_Param)
 # synaptic time constants:
 # rise time constants
 rise_PC_E = 1.3 * ms  # Guzman 2016 (only from Fig.1 H - 20-80%)
@@ -100,7 +99,7 @@ delay_PC_I = 1.1 * ms  # Bartos 2002
 delay_BC_E = 0.9 * ms  # Geiger 1997 (data from DG)
 delay_BC_I = 0.6 * ms  # Bartos 2002
 '''Modify the code to remove synaptic delay'''
-delay_PC_E = PC_SynDelay * ms  # Guzman 2016
+#delay_PC_E = PC_SynDelay * ms  # Guzman 2016
 
 # synaptic reversal potentials
 Erev_E = 0.0 * mV
@@ -180,7 +179,10 @@ dx_gaba/dt = -x_gaba/decay_BC_I : 1
 """
 
 
-def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = None, engine=None, verbose=True, folder=None, expid=None):
+#def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = None, engine=None, verbose=True, folder=None, expid=None):
+def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, STDP_mode, cue, save, save_slice, seed, expdesc=None, engine=None, verbose=True, folder=None, expid=None,
+                   taup_sim=20, taum_sim=20, stdp_post_scale_factor=-0.1, stdp_pre_scale_factor=-0.1, delay_PC_E=2.2, Learning_Rate=0.01,connection_prob_PC = 0.1, connection_prob_BC = 0.25):
+
     """
     Sets up the network and runs simulation
     :param wmx_PC_E: np.array representing the recurrent excitatory synaptic weight matrix
@@ -196,9 +198,9 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     pyrandom.seed(seed)
     global Selected_PC_Index
     # synaptic weights (see `/optimization/optimize_network.py`)
-    w_PC_I = 0.65  # nS
-    w_BC_E = 0.85
-    w_BC_I = 5.
+    w_PC_I_input = 0.65  # nS
+    w_BC_E_input = 0.85  # nS
+    w_BC_I_input = 5.  # nS
     if STDP_mode == "asym":
         w_PC_MF = 21.5
     elif STDP_mode == "sym":
@@ -232,7 +234,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
         taup = taup_sim * ms 
         taum = taum_sim * ms
         Ap = Learning_Rate
-        Am = -Ap * stdp_post_scale_factor # Post syn stdp 
+        Am = Ap * stdp_post_scale_factor # Post syn stdp 
         Ap = Ap * stdp_pre_scale_factor
         #wmax = 2e-8  # S
         scale_factor = 1.27
@@ -267,7 +269,10 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     PCs_Weights_A = np.zeros((nPCs, nPCs))
     PCs_Weights_B = np.zeros((nPCs, nPCs))
     PCs_Weights_Diff = np.zeros((nPCs, nPCs))
+    synapse_details= exp_description + ', synaptic delay = {0:.2f}'.format(delay_PC_E)+ ', Am=' + '{0:.3f}'.format(Am) + ', Ap=' + '{0:.3f}'.format(Ap) + ', taup=' + '{0:.3f}'.format(taup) + ', taum=' + '{0:.3f}'.format(taum) + ', learning_rate=' + '{0:.3f}'.format(Learning_Rate) + ', adaptation mult={0:.2f}'.format(adapt_mult) + ', cue start=' + str(cue_start) + ' , STDP mode=' + STDP_mode + ', connection_prob_PC=' + '{0:.2f}'.format(connection_prob_PC) + ', connection_prob_BC=' + '{0:.2f}'.format(connection_prob_BC)
     
+
+    delay_PC_E = delay_PC_E * ms
     if RunType == "org":
         C_PC_E = Synapses(PCs, PCs, "w_exc:1", on_pre="x_ampa+=norm_PC_E*w_exc", delay=delay_PC_E)
         C_PC_E.connect(i=wmx_PC_E.row, j=wmx_PC_E.col)
@@ -287,18 +292,110 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
             Selected_PC = wmx_PC_E.row[Selected_PC_Index]
             print(Selected_PC)
         
-    synapse_details= exp_description + ', Selected PC=' + str(Selected_PC) + ', Am=' + '{0:.3f}'.format(Am) + ', Ap=' + '{0:.3f}'.format(Ap) + ', taup=' + str(taup) + ', taum=' + str(taum) + ', learning_rate=' + '{0:.3f}'.format(Learning_Rate) + ', adaptation mult={0:.2f}'.format(adapt_mult) + ', cue start=' + str(cue_start)
 
-        
+# Synapse plasticity rules for BCs
+    wmax_PC_I = np.amax(wmx_PC_I) * 20 # Allow for maximum 20x scaling of the weight
+    wmax_BC_E = np.amax(wmx_BC_E) * 20 # Allow for maximum 20x scaling of the weight
+    wmax_BC_I = np.amax(wmx_BC_I) * 20 # Allow for maximum 20x scaling of the weight
+    Ap_PC_I = 0.005
+    Am_PC_I = Ap_PC_I * -1.0
+    # BC_E plasticity parameters (Ap > 0 is hSTDP)
+    Ap_BC_E = 0.005
+    Am_BC_E = Ap_BC_E * -1.0
+    # BC_I plasticity parameters (Ap > 0 is hSTDP)
+    Ap_BC_I = -0.005
+    Am_BC_I = Ap_BC_I * -1.0
+    # Scale the plasticity parameters to match the weight range
+    tau_PC_I = 12.0 * ms
+    tau_BC_I = 12.0 * ms
+    tau_BC_E = 12.0 * ms
 
-    C_PC_I = Synapses(BCs, PCs, on_pre="x_gaba+=norm_PC_I*w_PC_I", delay=delay_PC_I)
-    C_PC_I.connect(p=connection_prob_BC)
+    Ap_PC_I = wmax_PC_I * Ap_PC_I # Scale by 2 to match the weight range
+    Am_PC_I = wmax_PC_I * Am_PC_I # Scale by 2 to match the weight range
+    Ap_BC_E = wmax_BC_E * Ap_BC_E # Scale by 2 to match the weight range
+    Am_BC_E = wmax_BC_E * Am_BC_E # Scale by 2 to match the weight range
+    Ap_BC_I = wmax_BC_I * Ap_BC_I # Scale by 2 to match the weight range
+    Am_BC_I = wmax_BC_I * Am_BC_I # Scale by 2 to match the weight range
+    synapse_details = synapse_details + '. Ap_BC_I=' + '{0:.3f}'.format(Ap_BC_I) + ', Am_BC_I=' + '{0:.3f}'.format(Am_BC_I) + ', Ap_PC_I=' + '{0:.3f}'.format(Ap_PC_I) + ', Am_PC_I=' + '{0:.3f}'.format(Am_PC_I) + ', Ap_BC_E=' + '{0:.3f}'.format(Ap_BC_E) + ', Am_BC_E=' + '{0:.3f}'.format(Am_BC_E)
+    synapse_details = synapse_details + ', Tau_BC_I=' + '{0:.3f}'.format(tau_BC_I) + ', Tau_BC_E=' + '{0:.3f}'.format(tau_BC_E) + ', Tau_PC_I=' + '{0:.3f}'.format(tau_PC_I) 
+    print(synapse_details)
+    #dApresyn = Ap
+    #dApostsyn = Am
+    dApresyn_BC_I = Ap_BC_I
+    dApostsyn_BC_I = Am_BC_I
+    dApresyn_BC_E = Ap_BC_E 
+    dApostsyn_BC_E = Am_BC_E
+    dApresyn_PC_I = Ap_PC_I
+    dApostsyn_PC_I = Am_PC_I
+    #tau_bc = 12 * ms  # Different tau for BCs
+    # PC_I modeling
+    synapse_model_PC_I='''
+    w_PC_I:1
+    dApresyn_PC_I/dt = -Apresyn_PC_I/tau_PC_I : 1 (event-driven)
+    dApostsyn_PC_I/dt = -Apostsyn_PC_I/tau_PC_I : 1 (event-driven)
+    '''
+    on_pre_setup_PC_I = '''
+    x_ampa+=norm_PC_I*w_PC_I
+    Apresyn_PC_I += dApresyn_PC_I
+    w_PC_I = clip(w_PC_I + Apostsyn_PC_I,0,wmax_PC_I)
+    '''
+    on_post_setup_PC_I= '''
+    Apostsyn_PC_I += dApostsyn_PC_I
+    w_PC_I = clip(w_PC_I + Apresyn_PC_I,0,wmax_PC_I)
+    '''
+    # BC_E modeling
+    synapse_model_BC_E='''
+    w_BC_E:1
+    dApresyn_BC_E/dt = -Apresyn_BC_E/tau_BC_E : 1 (event-driven)
+    dApostsyn_BC_E/dt = -Apostsyn_BC_E/tau_BC_E : 1 (event-driven)
+    '''
+    on_pre_setup_BC_E = '''
+    x_gaba+=norm_BC_E*w_BC_E
+    Apresyn_BC_E += dApresyn_BC_E
+    w_BC_E = clip(w_BC_E + Apostsyn_BC_E,0,wmax_BC_E)
+    '''
+    on_post_setup_BC_E= '''
+    Apostsyn_BC_E += dApostsyn_BC_E
+    w_BC_E = clip(w_BC_E + Apresyn_BC_E,0,wmax_BC_E)
+    '''
+    # BC_I modeling
+    synapse_model_BC_I='''
+    w_BC_I:1
+    dApresyn_BC_I/dt = -Apresyn_BC_I/tau_BC_I : 1 (event-driven)
+    dApostsyn_BC_I/dt = -Apostsyn_BC_I/tau_BC_I : 1 (event-driven)
+    '''
+    on_pre_setup_BC_I = '''
+    x_gaba+=norm_BC_I*w_BC_I
+    Apresyn_BC_I += dApresyn_BC_I
+    w_BC_I = clip(w_BC_I + Apostsyn_BC_I,0,wmax_BC_I)
+    '''
+    on_post_setup_BC_I= '''
+    Apostsyn_BC_I += dApostsyn_BC_I
+    w_BC_I = clip(w_BC_I + Apresyn_BC_I,0,wmax_BC_I)
+    '''
+    # Synapses definition
+    
 
-    C_BC_E = Synapses(PCs, BCs, on_pre="x_ampa+=norm_BC_E*w_BC_E", delay=delay_BC_E)
-    C_BC_E.connect(p=connection_prob_PC)
+    C_PC_I = Synapses(source=PCs, target=BCs, model=synapse_model_PC_I, on_pre= on_pre_setup_PC_I, on_post= on_post_setup_PC_I, delay=delay_PC_I)
+    #C_PC_I = Synapses(PCs, BCs, model="w_PC_I:1", on_pre="x_ampa+=norm_PC_I*w_PC_I", delay=delay_PC_I)
+    #C_PC_I.connect(p=connection_prob_BC)
+    C_PC_I.connect(i=wmx_PC_I.row, j=wmx_PC_I.col)
+    C_PC_I.w_PC_I = wmx_PC_I.data
+    #C_PC_I.w_PC_I = w_PC_I_input
 
-    C_BC_I = Synapses(BCs, BCs, on_pre="x_gaba+=norm_BC_I*w_BC_I", delay=delay_BC_I)
-    C_BC_I.connect(condition="i!=j",p=connection_prob_BC)
+    C_BC_E = Synapses(source=BCs, target=PCs,model=synapse_model_BC_E, on_pre=on_pre_setup_BC_E, on_post=on_post_setup_BC_E , delay=delay_BC_E)
+    #C_BC_E = Synapses(BCs, PCs, model="w_BC_E:1", on_pre="x_gaba+=norm_BC_E*w_BC_E", delay=delay_BC_E)
+    #C_BC_E.connect(p=connection_prob_PC)
+    C_BC_E.connect(i=wmx_BC_E.row, j=wmx_BC_E.col)
+    C_BC_E.w_BC_E = wmx_BC_E.data
+    #C_BC_E.w_BC_E = w_BC_E_input
+
+    C_BC_I = Synapses(source=BCs, target=BCs,model=synapse_model_BC_I , on_pre=on_pre_setup_BC_I, on_post= on_post_setup_BC_I, delay=delay_BC_I)
+    #C_BC_I = Synapses(BCs, BCs, model="w_BC_I:1", on_pre="x_gaba+=norm_BC_I*w_BC_I", delay=delay_BC_I)
+    #C_BC_I.connect(condition="i!=j",p=connection_prob_BC)
+    C_BC_I.connect(i=wmx_BC_I.row, j=wmx_BC_I.col)
+    C_BC_I.w_BC_I = wmx_BC_I.data
+    #C_BC_I.w_BC_I = w_BC_I_input
 
     SM_PC = SpikeMonitor(PCs)
     SM_BC = SpikeMonitor(BCs)
@@ -384,46 +481,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
         net.run(end_sim_len*ms)
     
     device.build(directory='output', compile=True, run=True, debug=True)
-            
-    '''
-    PCs_Weights_A[C_PC_E_STDP_A.i[:], C_PC_E_STDP_A.j[:]] = C_PC_E_STDP_A.w_exc[:]
-    PCWf_name = os.path.join(folder,'PC_Weights_Mid')
-    PCPf_name = os.path.join(folder,'PC_Weights_Diagram_Mid')
-    plot_wmx(PCs_Weights_A, save_name=PCPf_name)
-    plot_histogram_wmx(PCs_Weights_A, save_name=PCPf_name + '_histogram')
-    plot_violin(PCs_Weights, PCs_Weights_A, save_name=PCPf_name+'_diff_org_A')
     
-    if RunType == "org":
-        PCs_Weights_B[C_PC_E.i[:], C_PC_E.j[:]] = C_PC_E.w_exc[:]
-    else:
-        PCs_Weights_B[C_PC_E_STDP.i[:], C_PC_E_STDP.j[:]] = C_PC_E_STDP.w_exc[:]
-    
-    PCWf_name = os.path.join(folder,'PC_Weights_end')
-    PCPf_name = os.path.join(folder,'PC_Weights_Diagram_end')
-    #save_wmx(PCs_Weights, PCWf_name)
-    plot_wmx(PCs_Weights_B, save_name=PCPf_name)
-    #plot_histogram_wmx(PCs_Weights_B, save_name=PCPf_name + '_histogram')
-    plot_violin(PCs_Weights, PCs_Weights_B, save_name=PCPf_name+'_diff_org_B')
-    plot_violin(PCs_Weights_A, PCs_Weights_B, save_name=PCPf_name+'_diff_A_B')
-    #plot_Zoom_Weights(w=C_PC_E_SM,save_name=PCPf_name+ "_B")
-    
-    PCs_Weights_Diff = PCs_Weights - PCs_Weights_B
-    PCs_Weights_Diff_A = PCs_Weights - PCs_Weights_A
-    plot_wmx(PCs_Weights_Diff, save_name=PCPf_name+"_diff")
-    plot_wmx(PCs_Weights_Diff_A, save_name=PCPf_name+"_diff_A")   
-    df_PCs = SynWeightDist(PCs_Weights)
-    df_PCs_A = SynWeightDist(PCs_Weights_A)
-    df_PCs_B = SynWeightDist(PCs_Weights_B)
-    df_PCs_Diff = SynWeightDist(PCs_Weights_Diff)
-    df_PCs_Diff_A = SynWeightDist(PCs_Weights_Diff_A)
-
-    if RunType != "org":
-        datalayer.SaveTrial(engine=engine,data=df_PCs,tablename='SynWeightsStats',expid=expid,selected_pc=0)
-        datalayer.SaveTrial(engine=engine,data=df_PCs_A,tablename='SynWeightsStats',expid=expid,selected_pc=-1)
-        datalayer.SaveTrial(engine=engine,data=df_PCs_B,tablename='SynWeightsStats',expid=expid,selected_pc=-2)
-        datalayer.SaveTrial(engine=engine,data=df_PCs_Diff,tablename='SynWeightsStats',expid=expid,selected_pc=-100)
-        datalayer.SaveTrial(engine=engine,data=df_PCs_Diff_A,tablename='SynWeightsStats',expid=expid,selected_pc=-99)
-    '''
     if save:
         save_vars(SM_PC, RM_PC, StateM_PC, selection, seed)
     if save_slice and RunType != "org" :
@@ -432,60 +490,166 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
     # For iteration with the matrix - Save the synaptic weights
     f_out = "wmx_after_run_%s_%.1f_linear-itr2.npz" % (STDP_mode, place_cell_ratio) if linear else "wmx_after_run_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)
     weightmx = np.zeros((nPCs, nPCs))
+    # Set values larger than 1e-10
+    min_val = 0
+    mask = C_PC_E_STDP.w_exc[:] > min_val # Create a mask for values greater than 1e-10 * 0.62
     weightmx[C_PC_E_STDP.i[:], C_PC_E_STDP.j[:]] = C_PC_E_STDP.w_exc[:]
+    #weightmx[C_PC_E_STDP.i[mask], C_PC_E_STDP.j[mask]] = C_PC_E_STDP.w_exc[mask]
     #weightmx =  weightmx * 1e9 #nS conversion
+    #PCs_Weights_filtered = np.where(PCs_Weights > min_val, PCs_Weights, 0)
     save_wmx(weightmx, os.path.join(folder, str(expid) +'-wmx_syn_weights_PCs_End.npz'))
-    save_wmx(PCs_Weights_Diff, os.path.join(folder, str(expid) +'-wmx_syn_weights_PCs_End_Diff_.npz'))
+    save_wmx(PCs_Weights, os.path.join(folder, str(expid) +'-wmx_syn_weights_PCs_start.npz'))
     #save_wmx(PCs_Weights_A, os.path.join(base_path, "files", 'A_'+f_out))
-    return SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC
+    return SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC, weightmx
+
+
+## write a function that recieves a matrix weightmx and returs a matrix with the same shape with values are same if larger than 2, halved if values are between 0.2 and 2, and zero otherwise
+def  SynWeightHome(weightmx, pr_value = 2):
+    processed_matrix = np.zeros_like(weightmx)
+
+    # Apply the rules
+    processed_matrix[weightmx > pr_value] = weightmx[weightmx > pr_value]
+    processed_matrix[(weightmx > pr_value/10) & (weightmx <= pr_value)] = weightmx[(weightmx > pr_value/10) & (weightmx <= pr_value)] / 2.0
+
+    return processed_matrix
+
+def SynWeightHomeUniform(weightmx, hom_value = 0.9):
+  
+    return weightmx * hom_value
+
+
+def remap_weight_matrix_blocks(weightmx):
+    """
+    Remaps neuron indices in a COO sparse weight matrix by swapping blocks:
+    1000–1999 <--> 4000–4999.
+
+    :param weightmx: scipy.sparse.coo_matrix, shape (n, n)
+    :return: remapped scipy.sparse.coo_matrix with updated row/col indices
+    """
+    assert isinstance(weightmx, coo_matrix), "Input must be a COO sparse matrix"
+    n = weightmx.shape[0]
+    assert weightmx.shape[0] == weightmx.shape[1], "Matrix must be square"
+    assert n >= 5000, "Matrix must have at least 5000 rows/columns"
+
+    # Build identity map, then swap the two blocks
+    idx_map = np.arange(n)
+    idx_map[1000:2000], idx_map[4000:5000] = (
+        idx_map[4000:5000].copy(),
+        idx_map[1000:2000].copy()
+    )
+
+    # Apply remapping to the row and column indices
+    new_rows = idx_map[weightmx.row]
+    new_cols = idx_map[weightmx.col]
+
+    # Reconstruct new COO matrix
+    return coo_matrix((weightmx.data, (new_rows, new_cols)), shape=weightmx.shape)
+
 
 
 
 if __name__ == "__main__":
-
     try:
         STDP_mode = sys.argv[1]
         STDP_mode_Input = sys.argv[2]
         FolderDescription = sys.argv[3]
         RunT = sys.argv[4]
         Selected_PC_Index = int(sys.argv[5])
+        syn_preserve = float(sys.argv[6])
     except:
         STDP_mode = "sym"
+    
     assert STDP_mode in ["sym", "asym"]
     assert RunT in ["org", "alt"]
+    
     RunType = RunT
     save = False
-    save_slice=True
+    save_slice = True
     cue = Cue_Param
     verbose = True 
     TFR = False
     linear = True
-    place_cell_ratio = 0.5
     seed = 12345
-    engine = datalayer.InitializeSQLEngine()
-    
-    expid = datalayer.InitializeTrial(engine=engine,description='temp desc',details='temp detail')
-    print(expid)
-    FolderDescription = str(expid) + '-' + FolderDescription
-    
-    f_in = "wmx_%s_%.1f_linear.npz"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
-    PF_pklf_name = os.path.join(base_path, "files", "PFstarts_%s_linear.pkl" % place_cell_ratio) if linear else None
-    dir_name = os.path.join(base_path, "figures", "%.2f_replay_det_%s_%.1f" % (1, STDP_mode, place_cell_ratio)) if linear else None
-    dir_name_save = os.path.join(base_path, "figures", "%.2f_replay_det_%s_%.1f" % (1, STDP_mode, place_cell_ratio) ,FolderDescription) if linear else None
-    set_fig_dir(dir_name_save)
-    set_len_sim(total_sim_len)
-    if os.path.isdir(dir_name) == False:
-        os.mkdir(dir_name)
 
-    if os.path.isdir(dir_name_save) == False:
-        os.mkdir(dir_name_save)
-        print("dir exist: " + dir_name_save)
-    wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in))     
+    # Set ranges for each parameter
+    taup_sim_range = (10, 15)  # Example range for taup_sim
+    taum_sim_range = (10, 15)  # Example range for taum_sim
+    stdp_pre_scale_factor_range = (0.2,0.3)  # Example range for stdp_pre_scale_factor
+    stdp_post_scale_factor_range = (0, 0)  # Example range for stdp_post_scale_factor
+    PC_SynDelay_range = (2.2, 2.3)  # Example range for PC_SynDelay
+    Learning_Rate_range = (0.01, 0.03)  # Example range for Learning_Rate
+    place_cell_ratio_range = (0.5, 0.501)  # Example range for place_cell_ratio
+    connection_prob_PC_range = (0.1,0.101)
+    connection_prob_BC_range = (0.25,0.2501)
+    syn_preserve_range = (2.5,4.0) # Range for synaptic preservation for synaptic tagging homeostasis in nS
+
+    # Initialize SQL engine
     engine = datalayer.InitializeSQLEngine()
-    SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC = run_simulation(wmx_PC_E, STDP_mode, cue=cue,
-                                                                                save=save,save_slice=save_slice,expdesc=FolderDescription, engine=engine, seed=seed, verbose=verbose, folder=dir_name_save,expid=expid)
-        
+
+    # Randomly select parameters from the defined ranges
+    taup_sim = random.uniform(*taup_sim_range)
+    taum_sim = random.uniform(*taum_sim_range)
+    #stdp_post_scale_factor = random.uniform(*stdp_post_scale_factor_range)
+    stdp_pre_scale_factor = random.uniform(*stdp_pre_scale_factor_range) 
+    
+    # Make stdp kernel asymmetric
+    #stdp_post_scale_factor = stdp_pre_scale_factor *-1 #Asymetric STDP
+    stdp_post_scale_factor = stdp_pre_scale_factor # symmetric STDP
+    taum_sim = taup_sim
+    
+    PC_SynDelay = random.uniform(*PC_SynDelay_range)
+    Learning_Rate = random.uniform(*Learning_Rate_range)
+    #syn_preserve = random.uniform(*syn_preserve_range)
+    #place_cell_ratio = random.uniform(*place_cell_ratio_range)
+    #connection_prob_PC = random.uniform(*connection_prob_PC_range)
+    #connection_prob_BC = random.uniform(*connection_prob_BC_range)
+    connection_prob_PC = 0.1
+    connection_prob_BC = 0.25
+    place_cell_ratio = 0.5
+
+    # Update folder description for each combination
+    expid = datalayer.InitializeTrial(engine=engine, description='syn-compression', 
+                                        details=f'taup_sim={taup_sim}, taum_sim={taum_sim}, PC_SynDelay={PC_SynDelay}')
+    FolderDescription = f"{expid}-{FolderDescription}-MC_taup_{taup_sim:.2f}_Ap-scape_{stdp_pre_scale_factor:.2f}_delay_{PC_SynDelay:.2f}_syn_preserve_{syn_preserve:.2f}"
+    
+    # Set input and output file names based on current parameters
+    f_in = f"wmx_{STDP_mode_Input}_{place_cell_ratio:.1f}_linear.npz" if linear else f"wmx_{STDP_mode_Input}_{place_cell_ratio:.1f}.pkl"
+    f_in_PC_I = f"wmx_{STDP_mode_Input}_{place_cell_ratio:.1f}_linear_PC_I.npz" if linear else f"wmx_{STDP_mode_Input}_{place_cell_ratio:.1f}_PC_I.pkl"
+    f_in_BC_E = f"wmx_{STDP_mode_Input}_{place_cell_ratio:.1f}_linear_BC_E.npz" if linear else f"wmx_{STDP_mode_Input}_{place_cell_ratio:.1f}_BC_E.pkl"
+    f_in_BC_I = f"wmx_{STDP_mode_Input}_{place_cell_ratio:.1f}_linear_BC_I.npz" if linear else f"wmx_{STDP_mode_Input}_{place_cell_ratio:.1f}_BC_I.pkl"
+    PF_pklf_name = os.path.join(base_path, "files", f"PFstarts_{place_cell_ratio}_linear.pkl") if linear else None
+    dir_name = os.path.join(base_path, "figures", f"{1:.2f}_replay_det_{STDP_mode}_{place_cell_ratio:.1f}") if linear else None
+    dir_name_save = os.path.join(base_path, "figures", f"{1:.2f}_replay_det_{STDP_mode}_{place_cell_ratio:.1f}", FolderDescription) if linear else None
+    
+    # Ensure directories exist
+    if not os.path.isdir(dir_name):
+        os.mkdir(dir_name)
+    if not os.path.isdir(dir_name_save):
+        os.mkdir(dir_name_save)
+        print("Created dir: " + dir_name_save)
+    
+    # Load weight matrix
+    wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in)) #Weight matrix for PC_E
+    wmx_PC_I = load_wmx(os.path.join(base_path, "files", f_in_PC_I)) #Weight matrix for PC_I
+    wmx_BC_E = load_wmx(os.path.join(base_path, "files", f_in_BC_E)) #Weight matrix for BC_E
+    wmx_BC_I = load_wmx(os.path.join(base_path, "files", f_in_BC_I)) #Weight matrix for BC_I
+    wmx_PC_E = remap_weight_matrix_blocks(wmx_PC_E)  # Remap the weight matrix blocks if needed
+    # Run simulation with the randomly selected parameters
+    SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC, weightmx = run_simulation(
+        wmx_PC_E=wmx_PC_E, wmx_PC_I=wmx_PC_I, wmx_BC_E=wmx_BC_E, wmx_BC_I=wmx_BC_I, STDP_mode=STDP_mode, cue=cue, save=save, save_slice=save_slice, expdesc=FolderDescription,
+        engine=engine, seed=seed, verbose=verbose, folder=dir_name_save, expid=expid,
+        taup_sim=taup_sim, taum_sim=taum_sim, stdp_post_scale_factor=stdp_post_scale_factor, 
+        stdp_pre_scale_factor=stdp_pre_scale_factor, delay_PC_E=PC_SynDelay, Learning_Rate=Learning_Rate,connection_prob_PC=connection_prob_PC,connection_prob_BC=connection_prob_BC)
+    
+    #output_w = SynWeightHome(weightmx,syn_preserve)
+    #output_w = SynWeightHomeUniform(weightmx,0.9)
+    #output_w = SynWeightHomeUniform(output_w,0.95)
+    # Save the synaptic weights using f_in as the file name
+    #save_wmx(weightmx, os.path.join(base_path, "files", f_in))
+    
+
     device.delete()
-    plt.show()
+    #plt.show()
+
   
-    datalayer.CloseTrial(engine=engine,expid=expid)
+

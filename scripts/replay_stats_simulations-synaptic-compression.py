@@ -22,7 +22,7 @@ from sqlalchemy import false
 from sympy import true
 prefs.codegen.target = "numpy"
 import matplotlib.pyplot as plt
-#import brian2cuda
+import brian2cuda
 import random
 #import brian2genn
 from helper import load_wmx, preprocess_monitors, generate_cue_spikes,\
@@ -33,10 +33,7 @@ from plots import plot_violin, plot_raster, plot_posterior_trajectory, plot_PSD,
 
 set_device('cpp_standalone', build_on_run=False)
 
-#set_device("cuda_standalone", build_on_run=False)
-#prefs.devices.cuda_standalone.cuda_backend.cuda_path = 'C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.5'
-#set_device('genn', use_GPU=True, debug=True)
-#prefs.devices.genn.connectivity = 'SPARSE'
+
 base_path = os.path.sep.join(os.path.abspath("__file__").split(os.path.sep)[:-2])
 RunType = "org"
 
@@ -47,8 +44,8 @@ first_break_sim_len = 4000 #First break duration in ms can be used to store syna
 end_sim_len = 5000 #Duration in ms of entire simulation
 #taup_sim = 20 #pre synaptic stdp constant
 #taum_sim = 20 #post synaptic stdp constant
-stdp_post_scale_factor = 0.1 # Post before pre factor - Positive number is LTD
-stdp_pre_scale_factor = 0.1    #Use to modify the pre / post window - Positive number is LTP
+stdp_post_scale_factor = -0.1 # Post before pre factor - Positive number is LTD
+stdp_pre_scale_factor = -0.1    #Use to modify the pre / post window - Positive number is LTP
 total_sim_len=org_sim_len+first_break_sim_len+end_sim_len #Total simulation length
 Selected_PC_Index=0 #Index of the selected PC to be used for the detailed synaptic analysis
 #PC_SynDelay = 2.2 # in ms
@@ -409,10 +406,22 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc=Non
     save_wmx(weightmx, os.path.join(folder, str(expid) +'-wmx_syn_weights_PCs_End.npz'))
     save_wmx(PCs_Weights, os.path.join(folder, str(expid) +'-wmx_syn_weights_PCs_start.npz'))
     #save_wmx(PCs_Weights_A, os.path.join(base_path, "files", 'A_'+f_out))
-    return SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC
+    return SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC, weightmx
 
 
+## write a function that recieves a matrix weightmx and returs a matrix with the same shape with values are same if larger than 2, halved if values are between 0.2 and 2, and zero otherwise
+def SynWeightHome(weightmx, pr_value = 2):
+    processed_matrix = np.zeros_like(weightmx)
 
+    # Apply the rules
+    processed_matrix[weightmx > pr_value] = weightmx[weightmx > pr_value]
+    processed_matrix[(weightmx > pr_value/10) & (weightmx <= pr_value)] = weightmx[(weightmx > pr_value/10) & (weightmx <= pr_value)] / 2.0
+
+    return processed_matrix
+
+def SynWeightHomeUniform(weightmx, hom_value = 0.9):
+  
+    return weightmx * hom_value
     
 
 if __name__ == "__main__":
@@ -422,6 +431,7 @@ if __name__ == "__main__":
         FolderDescription = sys.argv[3]
         RunT = sys.argv[4]
         Selected_PC_Index = int(sys.argv[5])
+        syn_preserve = float(sys.argv[6])
     except:
         STDP_mode = "sym"
     
@@ -438,15 +448,16 @@ if __name__ == "__main__":
     seed = 12345
 
     # Set ranges for each parameter
-    taup_sim_range = (5, 20)  # Example range for taup_sim
-    taum_sim_range = (5, 20)  # Example range for taum_sim
+    taup_sim_range = (10, 10)  # Example range for taup_sim
+    taum_sim_range = (10, 10)  # Example range for taum_sim
     stdp_post_scale_factor_range = (-1.0, 1.0)  # Example range for stdp_post_scale_factor
-    stdp_pre_scale_factor_range = (-1.0, 1.0)  # Example range for stdp_pre_scale_factor
-    PC_SynDelay_range = (0, 0.00001)  # Example range for PC_SynDelay
-    Learning_Rate_range = (0.005, 0.05)  # Example range for Learning_Rate
+    stdp_pre_scale_factor_range = (0.2, 0.2)  # Example range for stdp_pre_scale_factor
+    PC_SynDelay_range = (2.2, 2.3)  # Example range for PC_SynDelay
+    Learning_Rate_range = (0.01, 0.03)  # Example range for Learning_Rate
     place_cell_ratio_range = (0.5, 0.501)  # Example range for place_cell_ratio
     connection_prob_PC_range = (0.1,0.101)
     connection_prob_BC_range = (0.25,0.2501)
+    syn_preserve_range = (2.5,4.0) # Range for synaptic preservation for synaptic tagging homeostasis in nS
 
     # Number of Monte Carlo simulations to run
     #num_simulations = 5
@@ -461,12 +472,13 @@ if __name__ == "__main__":
     stdp_pre_scale_factor = random.uniform(*stdp_pre_scale_factor_range) 
     
     # Make stdp kernel asymmetric
-    stdp_post_scale_factor = stdp_pre_scale_factor *-1
-    #stdp_post_scale_factor = stdp_pre_scale_factor # symmetric STDP
+    #stdp_post_scale_factor = stdp_pre_scale_factor *-1 # asymmetric STDP
+    stdp_post_scale_factor = stdp_pre_scale_factor # symmetric STDP
     taum_sim = taup_sim
     
     PC_SynDelay = random.uniform(*PC_SynDelay_range)
     Learning_Rate = random.uniform(*Learning_Rate_range)
+    #syn_preserve = random.uniform(*syn_preserve_range)
     #place_cell_ratio = random.uniform(*place_cell_ratio_range)
     #connection_prob_PC = random.uniform(*connection_prob_PC_range)
     #connection_prob_BC = random.uniform(*connection_prob_BC_range)
@@ -475,9 +487,9 @@ if __name__ == "__main__":
     place_cell_ratio = 0.5
 
     # Update folder description for each combination
-    expid = datalayer.InitializeTrial(engine=engine, description='Monte Carlo Simulation', 
+    expid = datalayer.InitializeTrial(engine=engine, description='syn-compression', 
                                         details=f'taup_sim={taup_sim}, taum_sim={taum_sim}, PC_SynDelay={PC_SynDelay}')
-    FolderDescription = f"{expid}-{FolderDescription}-MC_taup_{taup_sim:.2f}_taum_{taum_sim:.2f}_delay_{PC_SynDelay:.2f}"
+    FolderDescription = f"{expid}-{FolderDescription}-MC_taup_{taup_sim:.2f}_Ap-scape_{stdp_pre_scale_factor:.2f}_delay_{PC_SynDelay:.2f}_syn_preserve_{syn_preserve:.2f}"
     
     # Set input and output file names based on current parameters
     f_in = f"wmx_{STDP_mode_Input}_{place_cell_ratio:.1f}_linear.npz" if linear else f"wmx_{STDP_mode_Input}_{place_cell_ratio:.1f}.pkl"
@@ -496,11 +508,17 @@ if __name__ == "__main__":
     wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in))
     
     # Run simulation with the randomly selected parameters
-    SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC = run_simulation(
+    SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC, weightmx = run_simulation(
         wmx_PC_E, STDP_mode, cue=cue, save=save, save_slice=save_slice, expdesc=FolderDescription,
         engine=engine, seed=seed, verbose=verbose, folder=dir_name_save, expid=expid,
         taup_sim=taup_sim, taum_sim=taum_sim, stdp_post_scale_factor=stdp_post_scale_factor, 
         stdp_pre_scale_factor=stdp_pre_scale_factor, delay_PC_E=PC_SynDelay, Learning_Rate=Learning_Rate,connection_prob_PC=connection_prob_PC,connection_prob_BC=connection_prob_BC)
+    
+    #output_w = SynWeightHome(weightmx,syn_preserve)
+    output_w = SynWeightHomeUniform(weightmx,0.9) # 10% reduction in synaptic weights
+    #output_w = SynWeightHomeUniform(output_w,0.95)
+    # Save the synaptic weights using f_in as the file name
+    save_wmx(output_w, os.path.join(base_path, "files", f_in))
     
 
     device.delete()
