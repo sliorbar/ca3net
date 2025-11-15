@@ -85,7 +85,7 @@ dx_gaba/dt = -x_gaba/decay_BC_I : 1
 """
 
 
-def learning(spiking_neurons, spike_times, taup, taum, Ap_o, Am_o, wmax, w_init):
+def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init):
     """
     Takes a spiking group of neurons, connects the neurons sparsely with each other, and learns the weight 'pattern' via STDP:
     exponential STDP: f(s) = A_p * exp(-s/tau_p) (if s > 0), where s=tpost_{spike}-tpre_{spike}
@@ -100,60 +100,61 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap_o, Am_o, wmax, w_init)
     np.random.seed(12345)
     pyrandom.seed(12345)
     #plot_STDP_rule(taup/ms, taum/ms, Ap/1e-9, Am/1e-9, "STDP_rule")
-    w_PC_I_inp = 0.65  # nS
-    w_BC_E_inp = 0.85
-    w_BC_I_inp = 5.
+    w_PC_I_inp = 0.65 * 1e-9 # nS
+    w_BC_E_inp = 0.85 * 1e-9 # nS
+    w_BC_I_inp = 5.0 * 1e-9 # nS
+    wmax_PC_I = w_PC_I_inp * 5 # Allow for maximum 5x scaling of the weight
+    wmax_BC_E = w_BC_E_inp * 5 # Allow for maximum 5x scaling of the weight
+    wmax_BC_I = w_BC_I_inp * 5 # Allow for maximum 5x scaling of the weight
     PC = SpikeGeneratorGroup(nPCs, spiking_neurons, spike_times*second)
-    # mimics Brian1's exponentialSTPD class, with interactions='all', update='additive'
+    # mimics Brian1's exponential STPD class, with interactions='all', update='additive'
     # see more on conversion: http://brian2.readthedocs.io/en/stable/introduction/brian1_to_2/synapses.html
-    STDP = Synapses(PC, PC,
-            """
-            w : 1
-            dA_presyn/dt = -A_presyn/taup : 1 (event-driven)
-            dA_postsyn/dt = -A_postsyn/taum : 1 (event-driven)
-            """,
-            on_pre="""
-            A_presyn += Ap_o
-            w = clip(w + A_postsyn, 0, wmax)
-            """,
-            on_post="""
-            A_postsyn += Am_o
-            w = clip(w + A_presyn, 0, wmax)
-            """)
-    STDP.connect(condition="i!=j", p=connection_prob_PC)
-
     
-
-    STDP.w = w_init
     # Inhinitory population
     BCs = NeuronGroup(nBCs, model=eqs_BC, threshold="vm>spike_th_BC",
                       reset="vm=Vreset_BC; w+=b_BC", refractory=tref_BC, method="exponential_euler")
     BCs.vm  = Vrest_BC; BCs.g_ampa = 0.0; BCs.g_gaba = 0.0    
-    Ap = wmax * plasticity_scale_factor
-    Am = wmax * plasticity_scale_factor
+    #PC to BC plasticity parameters (Ap > 0 is hSTDP)
+    Ap_PC_I = 0.02
+    Am_PC_I = -Ap_PC_I
+    # BC_E plasticity parameters (Ap > 0 is hSTDP)
+    Ap_BC_E = -0.02 
+    Am_BC_E = -Ap_BC_E
+    # BC_I plasticity parameters (Ap > 0 is hSTDP)
+    Ap_BC_I = 0.02
+    Am_BC_I = -Ap_BC_I
+    # Scale the plasticity parameters to match the weight range
+
+
+    Ap_PC_I = wmax_PC_I * Ap_PC_I
+    Am_PC_I = wmax_PC_I * Am_PC_I
+    Ap_BC_E = wmax_BC_E * Ap_BC_E
+    Am_BC_E = wmax_BC_E * Am_BC_E
+    Ap_BC_I = wmax_BC_I * Ap_BC_I
+    Am_BC_I = wmax_BC_I * Am_BC_I
     dApresyn = Ap
     dApostsyn = Am
-    dApresyn_BC_I = Ap
-    dApostsyn_BC_I = Am * -1
-    dApresyn_BC_E = Ap * -1
-    dApostsyn_BC_E = Am
-    dApresyn_PC_I = Ap
-    dApostsyn_PC_I = Am * -1
-
+    dApresyn_BC_I = Ap_BC_I
+    dApostsyn_BC_I = Am_BC_I
+    dApresyn_BC_E = Ap_BC_E 
+    dApostsyn_BC_E = Am_BC_E
+    dApresyn_PC_I = Ap_PC_I
+    dApostsyn_PC_I = Am_PC_I
+    tau_bc = 20 * ms  # Different tau for BCs, as in Bartos 2002
     # PC_I modeling
     synapse_model_PC_I='''
     w_e_inh:1
-    dApresyn_PC_I/dt = -Apresyn_PC_I/taup : 1 (event-driven)
-    dApostsyn_PC_I/dt = -Apostsyn_PC_I/taum : 1 (event-driven)
+    dApresyn_PC_I/dt = -Apresyn_PC_I/tau_bc : 1 (event-driven)
+    dApostsyn_PC_I/dt = -Apostsyn_PC_I/tau_bc : 1 (event-driven)
     '''
     on_pre_setup_PC_I = '''
     x_ampa+=norm_PC_I*w_e_inh
     Apresyn_PC_I += dApresyn_PC_I
-    w_e_inh = clip(w_e_inh + Apostsyn_PC_I,0,wmax)
+    w_e_inh = clip(w_e_inh + Apostsyn_PC_I,0,wmax_PC_I)
     '''
     on_post_setup_PC_I= '''
     Apostsyn_PC_I += dApostsyn_PC_I
-    w_e_inh = clip(w_e_inh + Apresyn_PC_I,0,wmax)
+    w_e_inh = clip(w_e_inh + Apresyn_PC_I,0,wmax_PC_I)
     '''
     # BC_E modeling
     synapse_model_BC_E='''
@@ -163,37 +164,55 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap_o, Am_o, wmax, w_init)
     '''
     on_pre_setup_BC_E = '''
     Apresyn_BC_E += dApresyn_BC_E
-    w_i_exc = clip(w_i_exc + Apostsyn_BC_E,0,wmax)
+    w_i_exc = clip(w_i_exc + Apostsyn_BC_E,0,wmax_BC_E)
     '''
     on_post_setup_BC_E= '''
     Apostsyn_BC_E += dApostsyn_BC_E
-    w_i_exc = clip(w_i_exc + Apresyn_BC_E,0,wmax)
+    w_i_exc = clip(w_i_exc + Apresyn_BC_E,0,wmax_BC_E)
     '''
     # BC_I modeling
     synapse_model_BC_I='''
     w_i_inh:1
-    dApresyn_BC_I/dt = -Apresyn_BC_I/taup : 1 (event-driven)
-    dApostsyn_BC_I/dt = -Apostsyn_BC_I/taum : 1 (event-driven)
+    dApresyn_BC_I/dt = -Apresyn_BC_I/tau_bc : 1 (event-driven)
+    dApostsyn_BC_I/dt = -Apostsyn_BC_I/tau_bc : 1 (event-driven)
     '''
     on_pre_setup_BC_I = '''
     x_gaba+=norm_BC_I*w_i_inh
     Apresyn_BC_I += dApresyn_BC_I
-    w_i_inh = clip(w_i_inh + Apostsyn_BC_I,0,wmax)
+    w_i_inh = clip(w_i_inh + Apostsyn_BC_I,0,wmax_BC_I)
     '''
     on_post_setup_BC_I= '''
     Apostsyn_BC_I += dApostsyn_BC_I
-    w_i_inh = clip(w_i_inh + Apresyn_BC_I,0,wmax)
+    w_i_inh = clip(w_i_inh + Apresyn_BC_I,0,wmax_BC_I)
     '''
-
-
-            
+    # Synapses definition
+    #PC to PC STDP
+    STDP = Synapses(PC, PC,
+            """
+            w : 1
+            dA_presyn/dt = -A_presyn/taup : 1 (event-driven)
+            dA_postsyn/dt = -A_postsyn/taum : 1 (event-driven)
+            """,
+            on_pre="""
+            A_presyn += Ap
+            w = clip(w + A_postsyn, 0, wmax)
+            """,
+            on_post="""
+            A_postsyn += Am
+            w = clip(w + A_presyn, 0, wmax)
+            """)
+    STDP.connect(condition="i!=j", p=connection_prob_PC)
+    #STDP.delay = 0.1 * ms  # Bartos 2002
+    STDP.w = w_init
+    # PC to BC synapses       
     C_PC_I = Synapses(source=PC, target=BCs, model=synapse_model_PC_I, on_pre= on_pre_setup_PC_I, on_post= on_post_setup_PC_I, delay=delay_PC_I)
     C_PC_I.connect(p=connection_prob_BC)
     C_PC_I.w_e_inh = w_PC_I_inp
-
+    # BC to PC 
     C_BC_E = Synapses(source=BCs, target=PC,model=synapse_model_BC_E, on_pre=on_pre_setup_BC_E, on_post=on_post_setup_BC_E , delay=delay_BC_E)
     C_BC_E.connect(p=connection_prob_PC)
     C_BC_E.w_i_exc = w_BC_E_inp
+    # BC to BC
     C_BC_I = Synapses(source=BCs, target=BCs,model=synapse_model_BC_I , on_pre=on_pre_setup_BC_I, on_post= on_post_setup_BC_I, delay=delay_BC_I)
     C_BC_I.connect(condition="i!=j",p=connection_prob_BC)
     C_BC_I.w_i_inh = w_BC_I_inp
@@ -249,9 +268,9 @@ if __name__ == "__main__":
 
     weightmx, wmatrix_PCI, wmatrix_BC_E, wmatrix_BC_I = learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init)
     weightmx *= scale_factor  # quick and dirty additional scaling! (in an ideal world the STDP parameters should be changed to include this scaling...)
-    wmatrix_PCI *= scale_factor
-    wmatrix_BC_E *= scale_factor
-    wmatrix_BC_I *= scale_factor
+    #wmatrix_PCI *= scale_factor
+    #wmatrix_BC_E *= scale_factor
+    #wmatrix_BC_I *= scale_factor
 
     save_wmx(weightmx, os.path.join(base_path, "files", f_out))
     save_wmx(wmatrix_PCI, os.path.join(base_path, "files", f_out[:-4] + "_PC_I.npz"))

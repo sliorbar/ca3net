@@ -42,7 +42,7 @@ RunType = "org"
 ##############Start  of LB parameters ###############
 org_sim_len = 1000 # First part of the simulation - Can be used to store synaptic weights
 first_break_sim_len = 4000 #First break duration in ms can be used to store synaptic weights
-end_sim_len = 5000 #Duration in ms of entire simulation
+end_sim_len = 10000 #Duration in ms of entire simulation
 #taup_sim = 20 #pre synaptic stdp constant
 #taum_sim = 20 #post synaptic stdp constant
 #stdp_post_scale_factor = -0.1 # Post before pre factor - Positive number is LTD
@@ -297,18 +297,18 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, STDP_mode, cue, save, 
     wmax_PC_I = np.amax(wmx_PC_I) * 20 # Allow for maximum 20x scaling of the weight
     wmax_BC_E = np.amax(wmx_BC_E) * 20 # Allow for maximum 20x scaling of the weight
     wmax_BC_I = np.amax(wmx_BC_I) * 20 # Allow for maximum 20x scaling of the weight
-    Ap_PC_I = 0.005
+    Ap_PC_I = -0.02
     Am_PC_I = Ap_PC_I * -1.0
     # BC_E plasticity parameters (Ap > 0 is hSTDP)
-    Ap_BC_E = 0.005
+    Ap_BC_E = -0.02
     Am_BC_E = Ap_BC_E * -1.0
     # BC_I plasticity parameters (Ap > 0 is hSTDP)
-    Ap_BC_I = -0.005
-    Am_BC_I = Ap_BC_I * -1.0
+    Ap_BC_I = 0.02
+    Am_BC_I = Ap_BC_I #* -1.0
     # Scale the plasticity parameters to match the weight range
-    tau_PC_I = 12.0 * ms
-    tau_BC_I = 12.0 * ms
-    tau_BC_E = 12.0 * ms
+    tau_PC_I = 15.0 * ms
+    tau_BC_I = 15.0 * ms
+    tau_BC_E = 15.0 * ms
 
     Ap_PC_I = wmax_PC_I * Ap_PC_I # Scale by 2 to match the weight range
     Am_PC_I = wmax_PC_I * Am_PC_I # Scale by 2 to match the weight range
@@ -316,7 +316,7 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, STDP_mode, cue, save, 
     Am_BC_E = wmax_BC_E * Am_BC_E # Scale by 2 to match the weight range
     Ap_BC_I = wmax_BC_I * Ap_BC_I # Scale by 2 to match the weight range
     Am_BC_I = wmax_BC_I * Am_BC_I # Scale by 2 to match the weight range
-    synapse_details = synapse_details + '. Ap_BC_I=' + '{0:.3f}'.format(Ap_BC_I) + ', Am_BC_I=' + '{0:.3f}'.format(Am_BC_I) + ', Ap_PC_I=' + '{0:.3f}'.format(Ap_PC_I) + ', Am_PC_I=' + '{0:.3f}'.format(Am_PC_I) + ', Ap_BC_E=' + '{0:.3f}'.format(Ap_BC_E) + ', Am_BC_E=' + '{0:.3f}'.format(Am_BC_E)
+    synapse_details = synapse_details + ', Ap_BC_I=' + '{0:.3f}'.format(Ap_BC_I) + ', Am_BC_I=' + '{0:.3f}'.format(Am_BC_I) + ', Ap_PC_I=' + '{0:.3f}'.format(Ap_PC_I) + ', Am_PC_I=' + '{0:.3f}'.format(Am_PC_I) + ', Ap_BC_E=' + '{0:.3f}'.format(Ap_BC_E) + ', Am_BC_E=' + '{0:.3f}'.format(Am_BC_E)
     synapse_details = synapse_details + ', Tau_BC_I=' + '{0:.3f}'.format(tau_BC_I) + ', Tau_BC_E=' + '{0:.3f}'.format(tau_BC_E) + ', Tau_PC_I=' + '{0:.3f}'.format(tau_PC_I) 
     print(synapse_details)
     #dApresyn = Ap
@@ -574,7 +574,7 @@ if __name__ == "__main__":
     # Set ranges for each parameter
     taup_sim_range = (10, 15)  # Example range for taup_sim
     taum_sim_range = (10, 15)  # Example range for taum_sim
-    stdp_pre_scale_factor_range = (0.2,0.3)  # Example range for stdp_pre_scale_factor
+    stdp_pre_scale_factor_range = (-0.2,-0.1)  # Example range for stdp_pre_scale_factor
     stdp_post_scale_factor_range = (0, 0)  # Example range for stdp_post_scale_factor
     PC_SynDelay_range = (2.2, 2.3)  # Example range for PC_SynDelay
     Learning_Rate_range = (0.01, 0.03)  # Example range for Learning_Rate
@@ -593,8 +593,8 @@ if __name__ == "__main__":
     stdp_pre_scale_factor = random.uniform(*stdp_pre_scale_factor_range) 
     
     # Make stdp kernel asymmetric
-    #stdp_post_scale_factor = stdp_pre_scale_factor *-1 #Asymetric STDP
-    stdp_post_scale_factor = stdp_pre_scale_factor # symmetric STDP
+    stdp_post_scale_factor = stdp_pre_scale_factor *-1 #Asymetric STDP
+    #stdp_post_scale_factor = stdp_pre_scale_factor # symmetric STDP
     taum_sim = taup_sim
     
     PC_SynDelay = random.uniform(*PC_SynDelay_range)
@@ -633,7 +633,7 @@ if __name__ == "__main__":
     wmx_PC_I = load_wmx(os.path.join(base_path, "files", f_in_PC_I)) #Weight matrix for PC_I
     wmx_BC_E = load_wmx(os.path.join(base_path, "files", f_in_BC_E)) #Weight matrix for BC_E
     wmx_BC_I = load_wmx(os.path.join(base_path, "files", f_in_BC_I)) #Weight matrix for BC_I
-    wmx_PC_E = remap_weight_matrix_blocks(wmx_PC_E)  # Remap the weight matrix blocks if needed
+    #wmx_PC_E = remap_weight_matrix_blocks(wmx_PC_E)  # Remap the weight matrix blocks if needed
     # Run simulation with the randomly selected parameters
     SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC, weightmx = run_simulation(
         wmx_PC_E=wmx_PC_E, wmx_PC_I=wmx_PC_I, wmx_BC_E=wmx_BC_E, wmx_BC_I=wmx_BC_I, STDP_mode=STDP_mode, cue=cue, save=save, save_slice=save_slice, expdesc=FolderDescription,
