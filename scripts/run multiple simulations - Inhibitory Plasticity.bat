@@ -16,9 +16,9 @@ set SYN_Threshold=2.0
 :: Run the Python script multiple times
 for /L %%i in (1,1,%ITERATIONS%) do (
     echo Running iteration %%i 
-    ::python %SPIKES_FILE% 
-    ::python %STDP_FILE% asym sym 
-    python %PYTHON_FILE% asym sym "Inh plst EEah-EIah-IEah-IIs 20x inh No In Train %%i" alt 5000 %SYN_Threshold%
+    python %SPIKES_FILE% 
+    python %STDP_FILE% asym sym 
+    python %PYTHON_FILE% asym sym "Inh plst Testing scale - No replay plast %%i" alt 5000 %SYN_Threshold%
     ::python %PYTHON_FILE% asym sym "sSTDP Homeostasis 0.90 %%i - 1" alt 5000 %SYN_Threshold%
     ::python %PYTHON_FILE% asym sym "sSTDP Homeostasis 0.90 %%i - 2" alt 5000 %SYN_Threshold%
     ::python %PYTHON_FILE% asym sym "Rand start SynTag-real ah sk %%i - 3" alt 5000 %SYN_Threshold%

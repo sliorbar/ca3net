@@ -100,9 +100,9 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init):
     np.random.seed(12345)
     pyrandom.seed(12345)
     #plot_STDP_rule(taup/ms, taum/ms, Ap/1e-9, Am/1e-9, "STDP_rule")
-    w_PC_I_inp = 0.65 * 1e-9 # nS
-    w_BC_E_inp = 0.85 * 1e-9 # nS
-    w_BC_I_inp = 5.0 * 1e-9 # nS
+    w_PC_I_inp = 0.65 #* 1e-9 # nS
+    w_BC_E_inp = 0.85 #* 1e-9 # nS
+    w_BC_I_inp = 5.0 #* 1e-9 # nS
     wmax_PC_I = w_PC_I_inp * 5 # Allow for maximum 5x scaling of the weight
     wmax_BC_E = w_BC_E_inp * 5 # Allow for maximum 5x scaling of the weight
     wmax_BC_I = w_BC_I_inp * 5 # Allow for maximum 5x scaling of the weight
@@ -119,10 +119,10 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init):
     Am_PC_I = -Ap_PC_I
     # BC_E plasticity parameters (Ap > 0 is hSTDP)
     Ap_BC_E = -0.02 
-    Am_BC_E = -Ap_BC_E
+    Am_BC_E = Ap_BC_E
     # BC_I plasticity parameters (Ap > 0 is hSTDP)
     Ap_BC_I = 0.02
-    Am_BC_I = -Ap_BC_I
+    Am_BC_I = Ap_BC_I
     # Scale the plasticity parameters to match the weight range
 
 
@@ -231,8 +231,8 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init):
     weightmx_BC_I = np.zeros((nBCs, nBCs))
     weightmx_BC_I[C_BC_I.i[:], C_BC_I.j[:]] = C_BC_I.w_i_inh[:]
 
-    return weightmx * 1e9, weightmx_PC_I * 1e9, weightmx_BC_E * 1e9,  weightmx_BC_I * 1e9 # *1e9 nS conversion
-
+    #return weightmx * 1e9, weightmx_PC_I * 1e9, weightmx_BC_E * 1e9,  weightmx_BC_I * 1e9 # *1e9 nS conversion
+    return weightmx * 1e9, weightmx_PC_I , weightmx_BC_E ,  weightmx_BC_I  # *1e9 nS conversion
 
 if __name__ == "__main__":
 
