@@ -198,8 +198,8 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, STDP_mode, cue, save, 
     pyrandom.seed(seed)
     global Selected_PC_Index
     inh_plasticity_training = True
-    inh_plasticity = False
-    max_inhibition_mult = 20.0
+    inh_plasticity = True
+    max_inhibition_mult = 1.5  # Maximum scaling of inhibitory weights
     # synaptic weights (see `/optimization/optimize_network.py`)
     w_PC_I_input = 0.65  # nS
     w_BC_E_input = 0.85  # nS
@@ -297,31 +297,36 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, STDP_mode, cue, save, 
         
 
 # Synapse plasticity rules for BCs
-    wmax_PC_I = np.amax(wmx_PC_I) * max_inhibition_mult # Allow for maximum 20x scaling of the weight
-    wmax_BC_E = np.amax(wmx_BC_E) * max_inhibition_mult # Allow for maximum 20x scaling of the weight
-    wmax_BC_I = np.amax(wmx_BC_I) * max_inhibition_mult # Allow for maximum 20x scaling of the weight
-    if inh_plasticity:
-        Ap_PC_I = -0.02
+    if inh_plasticity_training == True:
+        wmax_PC_I = np.amax(wmx_PC_I) * max_inhibition_mult # Allow for maximum scaling of the weight
+        wmax_BC_E = np.amax(wmx_BC_E) * max_inhibition_mult # Allow for maximum scaling of the weight
+        wmax_BC_I = np.amax(wmx_BC_I) * max_inhibition_mult # Allow for maximum scaling of the weight
+    else:
+        wmax_PC_I = w_PC_I_input * max_inhibition_mult  # Allow for maximum scaling of the weight          
+        wmax_BC_E = w_BC_E_input * max_inhibition_mult  # Allow for maximum scaling of the weight
+        wmax_BC_I = w_BC_I_input * max_inhibition_mult  # Allow for maximum scaling of the weight
+    if inh_plasticity == True:
+        Ap_PC_I = 0.02
         Am_PC_I = Ap_PC_I * -1.0
     else:
         Ap_PC_I = 0.0
         Am_PC_I = 0.0
     # BC_E plasticity parameters (Ap > 0 is hSTDP)
-    if inh_plasticity:
+    if inh_plasticity == True:
         Ap_BC_E = -0.02
         Am_BC_E = Ap_BC_E * -1.0
     else:
         Ap_BC_E = 0.0
         Am_BC_E = 0.0
     # BC_I plasticity parameters (Ap > 0 is hSTDP)
-    if inh_plasticity:
-        Ap_BC_I = -0.02
-        Am_BC_I = Ap_BC_I * -1.0
+    if inh_plasticity == True:
+        Ap_BC_I = 0.02
+        Am_BC_I = Ap_BC_I #* -1.0 ## This is for symmetric inhibitory plasticity on BC to BC synapses
     else:
         Ap_BC_I = 0.0
         Am_BC_I = 0.0
-    # Scale the plasticity parameters to match the weight range
-    if inh_plasticity:
+    # Time constants for inhibitory plasticity
+    if inh_plasticity == True:
         tau_PC_I = 15.0 * ms
         tau_BC_I = 15.0 * ms
         tau_BC_E = 15.0 * ms
@@ -330,12 +335,12 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, STDP_mode, cue, save, 
         tau_BC_I = 1.0 * ms
         tau_BC_E = 1.0 * ms
 
-    Ap_PC_I = wmax_PC_I * Ap_PC_I # Scale by 2 to match the weight range
-    Am_PC_I = wmax_PC_I * Am_PC_I # Scale by 2 to match the weight range
-    Ap_BC_E = wmax_BC_E * Ap_BC_E # Scale by 2 to match the weight range
-    Am_BC_E = wmax_BC_E * Am_BC_E # Scale by 2 to match the weight range
-    Ap_BC_I = wmax_BC_I * Ap_BC_I # Scale by 2 to match the weight range
-    Am_BC_I = wmax_BC_I * Am_BC_I # Scale by 2 to match the weight range
+    Ap_PC_I = wmax_PC_I * Ap_PC_I 
+    Am_PC_I = wmax_PC_I * Am_PC_I 
+    Ap_BC_E = wmax_BC_E * Ap_BC_E 
+    Am_BC_E = wmax_BC_E * Am_BC_E 
+    Ap_BC_I = wmax_BC_I * Ap_BC_I 
+    Am_BC_I = wmax_BC_I * Am_BC_I 
     synapse_details = synapse_details + ', Ap_BC_I=' + '{0:.3f}'.format(Ap_BC_I) + ', Am_BC_I=' + '{0:.3f}'.format(Am_BC_I) + ', Ap_PC_I=' + '{0:.3f}'.format(Ap_PC_I) + ', Am_PC_I=' + '{0:.3f}'.format(Am_PC_I) + ', Ap_BC_E=' + '{0:.3f}'.format(Ap_BC_E) + ', Am_BC_E=' + '{0:.3f}'.format(Am_BC_E)
     synapse_details = synapse_details + ', Tau_BC_I=' + '{0:.3f}'.format(tau_BC_I) + ', Tau_BC_E=' + '{0:.3f}'.format(tau_BC_E) + ', Tau_PC_I=' + '{0:.3f}'.format(tau_PC_I) 
     print(synapse_details)
@@ -398,7 +403,7 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, STDP_mode, cue, save, 
 
     C_PC_I = Synapses(source=PCs, target=BCs, model=synapse_model_PC_I, on_pre= on_pre_setup_PC_I, on_post= on_post_setup_PC_I, delay=delay_PC_I)
     #C_PC_I = Synapses(PCs, BCs, model="w_PC_I:1", on_pre="x_ampa+=norm_PC_I*w_PC_I", delay=delay_PC_I)
-    if inh_plasticity_training:
+    if inh_plasticity_training == True:
         C_PC_I.connect(i=wmx_PC_I.row, j=wmx_PC_I.col)
         C_PC_I.w_PC_I = wmx_PC_I.data
     else:
@@ -407,17 +412,17 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, STDP_mode, cue, save, 
     
     C_BC_E = Synapses(source=BCs, target=PCs,model=synapse_model_BC_E, on_pre=on_pre_setup_BC_E, on_post=on_post_setup_BC_E , delay=delay_BC_E)
     #C_BC_E = Synapses(BCs, PCs, model="w_BC_E:1", on_pre="x_gaba+=norm_BC_E*w_BC_E", delay=delay_BC_E)
-    if inh_plasticity_training:
+    if inh_plasticity_training == True:
         C_BC_E.connect(i=wmx_BC_E.row, j=wmx_BC_E.col)
         C_BC_E.w_BC_E = wmx_BC_E.data
     else:
-        C_BC_E.connect(p=connection_prob_BC)
+        C_BC_E.connect(p=connection_prob_PC)
         C_BC_E.w_BC_E = w_BC_E_input
     
 
     C_BC_I = Synapses(source=BCs, target=BCs,model=synapse_model_BC_I , on_pre=on_pre_setup_BC_I, on_post= on_post_setup_BC_I, delay=delay_BC_I)
     #C_BC_I = Synapses(BCs, BCs, model="w_BC_I:1", on_pre="x_gaba+=norm_BC_I*w_BC_I", delay=delay_BC_I)
-    if  inh_plasticity_training:
+    if  inh_plasticity_training == True:
         C_BC_I.connect(i=wmx_BC_I.row, j=wmx_BC_I.col)
         C_BC_I.w_BC_I = wmx_BC_I.data
     else:
@@ -602,12 +607,12 @@ if __name__ == "__main__":
     taup_sim_range = (10, 15)  # Example range for taup_sim
     taum_sim_range = (10, 15)  # Example range for taum_sim
     stdp_pre_scale_factor_range = (-0.2,-0.1)  # Example range for stdp_pre_scale_factor
-    stdp_post_scale_factor_range = (0, 0)  # Example range for stdp_post_scale_factor
+    stdp_post_scale_factor_range = (0.1, 0.2)  # Example range for stdp_post_scale_factor
     PC_SynDelay_range = (2.2, 2.3)  # Example range for PC_SynDelay
-    Learning_Rate_range = (0.00, 0.00)  # Example range for Learning_Rate
-    place_cell_ratio_range = (0.5, 0.501)  # Example range for place_cell_ratio
-    connection_prob_PC_range = (0.1,0.101)
-    connection_prob_BC_range = (0.25,0.2501)
+    Learning_Rate_range = (0.02, 0.02)  # Example range for Learning_Rate
+    place_cell_ratio_range = (0.5, 0.5)  # Example range for place_cell_ratio
+    connection_prob_PC_range = (0.1,0.1)
+    connection_prob_BC_range = (0.25,0.25)
     syn_preserve_range = (2.5,4.0) # Range for synaptic preservation for synaptic tagging homeostasis in nS
 
     # Initialize SQL engine
@@ -615,7 +620,7 @@ if __name__ == "__main__":
 
     # Randomly select parameters from the defined ranges
     taup_sim = random.uniform(*taup_sim_range)
-    taum_sim = random.uniform(*taum_sim_range)
+    #taum_sim = random.uniform(*taum_sim_range)
     #stdp_post_scale_factor = random.uniform(*stdp_post_scale_factor_range)
     stdp_pre_scale_factor = random.uniform(*stdp_pre_scale_factor_range) 
     

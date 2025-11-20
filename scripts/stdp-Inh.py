@@ -100,12 +100,19 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init):
     np.random.seed(12345)
     pyrandom.seed(12345)
     #plot_STDP_rule(taup/ms, taum/ms, Ap/1e-9, Am/1e-9, "STDP_rule")
-    w_PC_I_inp = 0.65 #* 1e-9 # nS
-    w_BC_E_inp = 0.85 #* 1e-9 # nS
-    w_BC_I_inp = 5.0 #* 1e-9 # nS
-    wmax_PC_I = w_PC_I_inp * 5 # Allow for maximum 5x scaling of the weight
-    wmax_BC_E = w_BC_E_inp * 5 # Allow for maximum 5x scaling of the weight
-    wmax_BC_I = w_BC_I_inp * 5 # Allow for maximum 5x scaling of the weight
+    max_mult = 1.5  # Allow for maximum 1.5x scaling of the Ph2 weight
+    initial_mult = 0.9  # Initial scaling of the weight - 50%
+    step_size = 0.03
+    inh_tau = 40 * ms
+    w_PC_I_inp = 0.65 #* 1e-9 # nS # Taken from Ecker 2022
+    w_BC_E_inp = 0.85 #* 1e-9 # nS # Taken from Ecker 2022
+    w_BC_I_inp = 5.0 #* 1e-9 # nS # Taken from Ecker 2022
+    wmax_PC_I = w_PC_I_inp * max_mult # Allow for maximum 1.5x scaling of the weight
+    wmax_BC_E = w_BC_E_inp * max_mult # Allow for maximum 1.5x scaling of the weight
+    wmax_BC_I = w_BC_I_inp * max_mult # Allow for maximum 1.5x scaling of the weight
+    w_PC_I_inp = w_PC_I_inp * initial_mult
+    w_BC_E_inp = w_BC_E_inp * initial_mult
+    w_BC_I_inp = w_BC_I_inp * initial_mult
     PC = SpikeGeneratorGroup(nPCs, spiking_neurons, spike_times*second)
     # mimics Brian1's exponential STPD class, with interactions='all', update='additive'
     # see more on conversion: http://brian2.readthedocs.io/en/stable/introduction/brian1_to_2/synapses.html
@@ -115,13 +122,13 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init):
                       reset="vm=Vreset_BC; w+=b_BC", refractory=tref_BC, method="exponential_euler")
     BCs.vm  = Vrest_BC; BCs.g_ampa = 0.0; BCs.g_gaba = 0.0    
     #PC to BC plasticity parameters (Ap > 0 is hSTDP)
-    Ap_PC_I = 0.02
+    Ap_PC_I = step_size
     Am_PC_I = -Ap_PC_I
     # BC_E plasticity parameters (Ap > 0 is hSTDP)
-    Ap_BC_E = -0.02 
-    Am_BC_E = Ap_BC_E
+    Ap_BC_E = -step_size 
+    Am_BC_E = -Ap_BC_E
     # BC_I plasticity parameters (Ap > 0 is hSTDP)
-    Ap_BC_I = 0.02
+    Ap_BC_I = step_size
     Am_BC_I = Ap_BC_I
     # Scale the plasticity parameters to match the weight range
 
@@ -140,7 +147,7 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init):
     dApostsyn_BC_E = Am_BC_E
     dApresyn_PC_I = Ap_PC_I
     dApostsyn_PC_I = Am_PC_I
-    tau_bc = 20 * ms  # Different tau for BCs, as in Bartos 2002
+    tau_bc = inh_tau  # Different tau for BCs, as in Bartos 2002
     # PC_I modeling
     synapse_model_PC_I='''
     w_e_inh:1
