@@ -42,7 +42,7 @@ RunType = "org"
 ##############Start  of LB parameters ###############
 org_sim_len = 1000 # First part of the simulation - Can be used to store synaptic weights
 first_break_sim_len = 4000 #First break duration in ms can be used to store synaptic weights
-end_sim_len = 10000 #Duration in ms of entire simulation
+end_sim_len = 25000 #Duration in ms of entire simulation
 #taup_sim = 20 #pre synaptic stdp constant
 #taum_sim = 20 #post synaptic stdp constant
 #stdp_post_scale_factor = -0.1 # Post before pre factor - Positive number is LTD
@@ -197,9 +197,13 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, STDP_mode, cue, save, 
     np.random.seed(seed)
     pyrandom.seed(seed)
     global Selected_PC_Index
-    inh_plasticity_training = True
+    inh_plasticity_training = True  # If True, inhibitory plasticity is enabled during the training phase
     inh_plasticity = True
-    max_inhibition_mult = 1.5  # Maximum scaling of inhibitory weights
+    #max_inhibition_mult = 1.5  # Maximum scaling of inhibitory weights
+    max_inhibition_mult_PC_I = 1.5  # Maximum scaling of inhibitory weights for PC to BC synapses
+    max_inhibition_mult_BC_E = 1.5  # Maximum scaling of inhibitory weights for BC to PC synapses
+    max_inhibition_mult_BC_I = 1.5  # Maximum scaling of inhibitory weights for BC to BC synapses
+    max_excitation_mult_PC_E = 1.5  # Maximum scaling of excitatory weights for PC to PC synapses
     # synaptic weights (see `/optimization/optimize_network.py`)
     w_PC_I_input = 0.65  # nS
     w_BC_E_input = 0.85  # nS
@@ -246,7 +250,7 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, STDP_mode, cue, save, 
         Ap = Am = 4e-3
         wmax = 2e-8  # S
         scale_factor = 0.62
-    wmax = np.amax(wmx_PC_E)
+    wmax = np.amax(wmx_PC_E) * max_excitation_mult_PC_E  # Allow for maximum scaling of the PC to PC weight
     Ap *= wmax
     Am *= wmax 
     #To align with code in Brian2 documentation (https://brian2.readthedocs.io/en/latest/examples/frompapers.Izhikevich_2007.html?highlight=stdp#example-izhikevich-2007)
@@ -298,13 +302,13 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, STDP_mode, cue, save, 
 
 # Synapse plasticity rules for BCs
     if inh_plasticity_training == True:
-        wmax_PC_I = np.amax(wmx_PC_I) * max_inhibition_mult # Allow for maximum scaling of the weight
-        wmax_BC_E = np.amax(wmx_BC_E) * max_inhibition_mult # Allow for maximum scaling of the weight
-        wmax_BC_I = np.amax(wmx_BC_I) * max_inhibition_mult # Allow for maximum scaling of the weight
+        wmax_PC_I = np.amax(wmx_PC_I) * max_inhibition_mult_PC_I # Allow for maximum scaling of the weight
+        wmax_BC_E = np.amax(wmx_BC_E) * max_inhibition_mult_BC_E # Allow for maximum scaling of the weight
+        wmax_BC_I = np.amax(wmx_BC_I) * max_inhibition_mult_BC_I # Allow for maximum scaling of the weight
     else:
-        wmax_PC_I = w_PC_I_input * max_inhibition_mult  # Allow for maximum scaling of the weight          
-        wmax_BC_E = w_BC_E_input * max_inhibition_mult  # Allow for maximum scaling of the weight
-        wmax_BC_I = w_BC_I_input * max_inhibition_mult  # Allow for maximum scaling of the weight
+        wmax_PC_I = w_PC_I_input * max_inhibition_mult_PC_I  # Allow for maximum scaling of the weight          
+        wmax_BC_E = w_BC_E_input * max_inhibition_mult_BC_E  # Allow for maximum scaling of the weight
+        wmax_BC_I = w_BC_I_input * max_inhibition_mult_BC_I  # Allow for maximum scaling of the weight
     if inh_plasticity == True:
         Ap_PC_I = 0.02
         Am_PC_I = Ap_PC_I * -1.0
@@ -529,7 +533,8 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, STDP_mode, cue, save, 
     #weightmx[C_PC_E_STDP.i[mask], C_PC_E_STDP.j[mask]] = C_PC_E_STDP.w_exc[mask]
     #weightmx =  weightmx * 1e9 #nS conversion
     #PCs_Weights_filtered = np.where(PCs_Weights > min_val, PCs_Weights, 0)
-    save_wmx(weightmx, os.path.join(folder, str(expid) +'-wmx_syn_weights_PCs_End.npz'))
+    #weightmx = PCs_Weights - weightmx
+    #save_wmx(weightmx, os.path.join(folder, str(expid) +'-wmx_syn_weights_PCs_End_Diff.npz'))
     save_wmx(PCs_Weights, os.path.join(folder, str(expid) +'-wmx_syn_weights_PCs_start.npz'))
     #save_wmx(PCs_Weights_A, os.path.join(base_path, "files", 'A_'+f_out))
     return SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC, weightmx
@@ -587,7 +592,7 @@ if __name__ == "__main__":
         FolderDescription = sys.argv[3]
         RunT = sys.argv[4]
         Selected_PC_Index = int(sys.argv[5])
-        syn_preserve = float(sys.argv[6])
+        #syn_preserve = float(sys.argv[6])
     except:
         STDP_mode = "sym"
     
@@ -642,7 +647,7 @@ if __name__ == "__main__":
     # Update folder description for each combination
     expid = datalayer.InitializeTrial(engine=engine, description='syn-compression', 
                                         details=f'taup_sim={taup_sim}, taum_sim={taum_sim}, PC_SynDelay={PC_SynDelay}')
-    FolderDescription = f"{expid}-{FolderDescription}-MC_taup_{taup_sim:.2f}_Ap-scape_{stdp_pre_scale_factor:.2f}_delay_{PC_SynDelay:.2f}_syn_preserve_{syn_preserve:.2f}"
+    FolderDescription = f"{expid}-{FolderDescription}-MC_taup_{taup_sim:.2f}_Ap-scape_{stdp_pre_scale_factor:.2f}_delay_{PC_SynDelay:.2f}"
     
     # Set input and output file names based on current parameters
     f_in = f"wmx_{STDP_mode_Input}_{place_cell_ratio:.1f}_linear.npz" if linear else f"wmx_{STDP_mode_Input}_{place_cell_ratio:.1f}.pkl"
@@ -673,7 +678,7 @@ if __name__ == "__main__":
         taup_sim=taup_sim, taum_sim=taum_sim, stdp_post_scale_factor=stdp_post_scale_factor, 
         stdp_pre_scale_factor=stdp_pre_scale_factor, delay_PC_E=PC_SynDelay, Learning_Rate=Learning_Rate,connection_prob_PC=connection_prob_PC,connection_prob_BC=connection_prob_BC)
     
-    #output_w = SynWeightHome(weightmx,syn_preserve)
+    #output_w = SynWeightHome(weightmx,syn_preserve) 
     #output_w = SynWeightHomeUniform(weightmx,0.9)
     #output_w = SynWeightHomeUniform(output_w,0.95)
     # Save the synaptic weights using f_in as the file name

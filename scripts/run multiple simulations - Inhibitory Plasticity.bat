@@ -11,18 +11,18 @@ set SPIKES_FILE=C:\Users\lior_\Documents\Code\ca3net\scripts\generate_spike_trai
 
 :: Number of iterations
 set ITERATIONS=1
-set SYN_Threshold=2.0
+
 
 :: Run the Python script multiple times
 for /L %%i in (1,1,%ITERATIONS%) do (
     echo Running iteration %%i 
-    python %SPIKES_FILE% 
-    python %STDP_FILE% asym sym 
-    python %PYTHON_FILE% asym sym "Inh training and replay plast %%i" alt 5000 %SYN_Threshold%
-    ::python %PYTHON_FILE% asym sym "sSTDP Homeostasis 0.90 %%i - 1" alt 5000 %SYN_Threshold%
-    ::python %PYTHON_FILE% asym sym "sSTDP Homeostasis 0.90 %%i - 2" alt 5000 %SYN_Threshold%
-    ::python %PYTHON_FILE% asym sym "Rand start SynTag-real ah sk %%i - 3" alt 5000 %SYN_Threshold%
-    ::python %PYTHON_FILE% asym sym "Rand start SynTag ah sk %%i - 4" alt 5000 %SYN_Threshold%
+    ::python %SPIKES_FILE% 
+    ::python %STDP_FILE% asym sym 
+    python %PYTHON_FILE% asym sym "Mult 2.0 max all pc-pc-h pc-ih bc-eAh 30sec %%i" alt 5000 
+    ::python %PYTHON_FILE% asym sym "sSTDP Homeostasis 0.90 %%i - 1" alt 5000 
+    ::python %PYTHON_FILE% asym sym "sSTDP Homeostasis 0.90 %%i - 2" alt 5000 
+    ::python %PYTHON_FILE% asym sym "Rand start SynTag-real ah sk %%i - 3" alt 5000 
+    ::python %PYTHON_FILE% asym sym "Rand start SynTag ah sk %%i - 4" alt 5000 
     :: Update SYN_Threshold
     ::set /A SYN_Threshold+=0.25
 

@@ -101,7 +101,7 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init):
     pyrandom.seed(12345)
     #plot_STDP_rule(taup/ms, taum/ms, Ap/1e-9, Am/1e-9, "STDP_rule")
     max_mult = 1.5  # Allow for maximum 1.5x scaling of the Ph2 weight
-    initial_mult = 0.9  # Initial scaling of the weight - 50%
+    initial_mult = 1.0  # Initial scaling of the weight - 50%
     step_size = 0.03
     inh_tau = 40 * ms
     w_PC_I_inp = 0.65 #* 1e-9 # nS # Taken from Ecker 2022
