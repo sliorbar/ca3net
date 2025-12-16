@@ -13,7 +13,7 @@ from brian2.units.stdunits import *
 from brian2.utils.caching import *
 import numpy as np
 import scipy
-import datalayer
+import datalayerOmen
 import random as pyrandom
 import sqlalchemy as sql
 import pandas as pd
@@ -349,7 +349,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
 
     syn_slice = upstream_neurons.values
     
-    datalayer.UpdateTrial(engine=engine,description=expdesc,details=synapse_details,expid=expid)
+    datalayerOmen.UpdateTrial(engine=engine,description=expdesc,details=synapse_details,expid=expid)
     
     if RunType == "org":
         net = Network(PCs,BCs,MF,C_PC_MF,C_PC_E,C_PC_I,C_BC_E,C_BC_I, SM_PC,SM_BC,RM_PC,RM_BC,StateM_PC,StateM_BC)
@@ -422,18 +422,18 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = N
         datalayer.SaveTrial(engine=engine,data=df_PCs_Diff,tablename='SynWeightsStats',expid=expid,selected_pc=-100)
         datalayer.SaveTrial(engine=engine,data=df_PCs_Diff_A,tablename='SynWeightsStats',expid=expid,selected_pc=-99)
     '''
-    if save:
-        save_vars(SM_PC, RM_PC, StateM_PC, selection, seed)
-    if save_slice and RunType != "org" :
-        save_vars_syn_cpp(StateM=C_PC_E_SM, folder=fig_dir, SpikeM=SM_PC,SpikeM_BC = SM_BC, selected_pc=detailed_selection, subset = subset_df ,RateM=RM_PC, RateM_BC = RM_BC,engine=engine,expid=expid,offset=0,runType=RunType,synapses=C_PC_E_STDP)
-    datalayer.CloseTrial(engine=engine,expid=expid)
+    #if save:
+    #    save_vars(SM_PC, RM_PC, StateM_PC, selection, seed)
+    #if save_slice and RunType != "org" :
+        #save_vars_syn_cpp(StateM=C_PC_E_SM, folder=fig_dir, SpikeM=SM_PC,SpikeM_BC = SM_BC, selected_pc=detailed_selection, subset = subset_df ,RateM=RM_PC, RateM_BC = RM_BC,engine=engine,expid=expid,offset=0,runType=RunType,synapses=C_PC_E_STDP)
+    datalayerOmen.CloseTrial(engine=engine,expid=expid)
     # For iteration with the matrix - Save the synaptic weights
     f_out = "wmx_after_run_%s_%.1f_linear-itr2.npz" % (STDP_mode, place_cell_ratio) if linear else "wmx_after_run_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)
     weightmx = np.zeros((nPCs, nPCs))
     weightmx[C_PC_E_STDP.i[:], C_PC_E_STDP.j[:]] = C_PC_E_STDP.w_exc[:]
     #weightmx =  weightmx * 1e9 #nS conversion
-    save_wmx(weightmx, os.path.join(folder, str(expid) +'-wmx_syn_weights_PCs_End.npz'))
-    save_wmx(PCs_Weights_Diff, os.path.join(folder, str(expid) +'-wmx_syn_weights_PCs_End_Diff_.npz'))
+    #save_wmx(weightmx, os.path.join(folder, str(expid) +'-wmx_syn_weights_PCs_End.npz'))
+    #save_wmx(PCs_Weights_Diff, os.path.join(folder, str(expid) +'-wmx_syn_weights_PCs_End_Diff_.npz'))
     #save_wmx(PCs_Weights_A, os.path.join(base_path, "files", 'A_'+f_out))
     return SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC
 
@@ -460,9 +460,9 @@ if __name__ == "__main__":
     linear = True
     place_cell_ratio = 0.5
     seed = 12345
-    engine = datalayer.InitializeSQLEngine()
+    engine = datalayerOmen.InitializeSQLEngine()
     
-    expid = datalayer.InitializeTrial(engine=engine,description='temp desc',details='temp detail')
+    expid = datalayerOmen.InitializeTrial(engine=engine,description='temp desc',details='temp detail')
     FolderDescription = str(expid) + '-' + FolderDescription
     
     f_in = "wmx_%s_%.1f_linear.npz"%(STDP_mode_Input, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode_Input, place_cell_ratio)
@@ -478,7 +478,7 @@ if __name__ == "__main__":
         os.mkdir(dir_name_save)
         print("dir exist: " + dir_name_save)
     wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in))     
-    engine = datalayer.InitializeSQLEngine()
+    engine = datalayerOmen.InitializeSQLEngine()
     SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC = run_simulation(wmx_PC_E, STDP_mode, cue=cue,
                                                                                 save=save,save_slice=save_slice,expdesc=FolderDescription, engine=engine, seed=seed, verbose=verbose, folder=dir_name_save,expid=expid)
         

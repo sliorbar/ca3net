@@ -13,7 +13,7 @@ from brian2.units.stdunits import *
 from brian2.utils.caching import *
 import numpy as np
 import scipy
-import datalayer
+import datalayerOmen
 import random as pyrandom
 import sqlalchemy as sql
 import pandas as pd
@@ -484,7 +484,7 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, STDP_mode, cue, save, 
 
     syn_slice = upstream_neurons.values
     
-    datalayer.UpdateTrial(engine=engine,description=expdesc,details=synapse_details,expid=expid)
+    datalayerOmen.UpdateTrial(engine=engine,description=expdesc,details=synapse_details,expid=expid)
     
     if RunType == "org":
         net = Network(PCs,BCs,MF,C_PC_MF,C_PC_E,C_PC_I,C_BC_E,C_BC_I, SM_PC,SM_BC,RM_PC,RM_BC,StateM_PC,StateM_BC)
@@ -522,7 +522,7 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, STDP_mode, cue, save, 
         save_vars(SM_PC, RM_PC, StateM_PC, selection, seed)
     if save_slice and RunType != "org" :
         save_vars_syn_cpp(StateM=C_PC_E_SM, folder=fig_dir, SpikeM=SM_PC,SpikeM_BC = SM_BC, selected_pc=detailed_selection, subset = subset_df ,RateM=RM_PC, RateM_BC = RM_BC,engine=engine,expid=expid,offset=0,runType=RunType,synapses=C_PC_E_STDP)
-    datalayer.CloseTrial(engine=engine,expid=expid)
+    datalayerOmen.CloseTrial(engine=engine,expid=expid)
     # For iteration with the matrix - Save the synaptic weights
     f_out = "wmx_after_run_%s_%.1f_linear-itr2.npz" % (STDP_mode, place_cell_ratio) if linear else "wmx_after_run_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)
     weightmx = np.zeros((nPCs, nPCs))
@@ -533,9 +533,8 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, STDP_mode, cue, save, 
     #weightmx[C_PC_E_STDP.i[mask], C_PC_E_STDP.j[mask]] = C_PC_E_STDP.w_exc[mask]
     #weightmx =  weightmx * 1e9 #nS conversion
     #PCs_Weights_filtered = np.where(PCs_Weights > min_val, PCs_Weights, 0)
-    #weightmx = PCs_Weights - weightmx
-    #save_wmx(weightmx, os.path.join(folder, str(expid) +'-wmx_syn_weights_PCs_End_Diff.npz'))
-    save_wmx(PCs_Weights, os.path.join(folder, str(expid) +'-wmx_syn_weights_PCs_start.npz'))
+    #save_wmx(weightmx, os.path.join(folder, str(expid) +'-wmx_syn_weights_PCs_End.npz'))
+    #save_wmx(PCs_Weights, os.path.join(folder, str(expid) +'-wmx_syn_weights_PCs_start.npz'))
     #save_wmx(PCs_Weights_A, os.path.join(base_path, "files", 'A_'+f_out))
     return SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC, weightmx
 
@@ -621,7 +620,7 @@ if __name__ == "__main__":
     syn_preserve_range = (2.5,4.0) # Range for synaptic preservation for synaptic tagging homeostasis in nS
 
     # Initialize SQL engine
-    engine = datalayer.InitializeSQLEngine()
+    engine = datalayerOmen.InitializeSQLEngine()
 
     # Randomly select parameters from the defined ranges
     taup_sim = random.uniform(*taup_sim_range)
@@ -645,7 +644,7 @@ if __name__ == "__main__":
     place_cell_ratio = 0.5
 
     # Update folder description for each combination
-    expid = datalayer.InitializeTrial(engine=engine, description='syn-compression', 
+    expid = datalayerOmen.InitializeTrial(engine=engine, description='syn-compression', 
                                         details=f'taup_sim={taup_sim}, taum_sim={taum_sim}, PC_SynDelay={PC_SynDelay}')
     FolderDescription = f"{expid}-{FolderDescription}-MC_taup_{taup_sim:.2f}_Ap-scape_{stdp_pre_scale_factor:.2f}_delay_{PC_SynDelay:.2f}"
     

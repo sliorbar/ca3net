@@ -11,4 +11,5 @@ scripts/output/
 scripts/var/
 scripts/optimization/Mishra_2016/
 scripts/optimization/checkpoints/
-scripts/datalayer-Omen.py
+scripts/datalayerOmen.py
+scripts/run_sims.sh

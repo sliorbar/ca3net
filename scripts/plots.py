@@ -6,7 +6,7 @@ authors: András Ecker, Bence Bagi last update: 02.2019
 
 import os
 from tokenize import Name
-from turtle import distance
+#from turtle import distance
 from unicodedata import name
 from cv2 import threshold
 import numpy as np

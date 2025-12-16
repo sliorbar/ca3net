@@ -18,7 +18,7 @@ from brian2.units.allunits import *
 from brian2.units.stdunits import *
 import pandas as pd
 from pandas import DataFrame as df
-import datalayer
+import datalayerOmen
 
 #from plots import fig_dir
 base_path = os.path.sep.join(os.path.abspath("__file__").split(os.path.sep)[:-2])
@@ -269,12 +269,12 @@ def save_vars_syn(SpikeM, StateM, RateM, subset, selected_pc, folder, f_name="sy
     PSCs["PC"] = spiking_neurons
 
     #datalayer.SaveTrial(engine=engine,data=ws,tablename='ws',expid=expid,selected_pc=selected_pc, unpivot=True)
-    datalayer.SaveTrial(engine=engine,data=spike_times,tablename='spike_times',expid=expid)
-    datalayer.SaveTrial(engine=engine,data=spiking_neurons,tablename='spiking_neurons',expid=expid)
-    datalayer.SaveTrial(engine=engine,data=rate,tablename='rate',expid=expid)
-    datalayer.SaveTrial(engine=engine,data=BCs,tablename='BCs',expid=expid)
-    datalayer.SaveTrial(engine=engine,data=PSCs,tablename='PSCs',expid=expid)
-    datalayer.SaveTrial(engine=engine,data=wexc_s,tablename='wexc_s',expid=expid,selected_pc=selected_pc,unpivot=True, offset=offset,dfIndex=dfIndex)
+    datalayerOmen.SaveTrial(engine=engine,data=spike_times,tablename='spike_times',expid=expid)
+    datalayerOmen.SaveTrial(engine=engine,data=spiking_neurons,tablename='spiking_neurons',expid=expid)
+    datalayerOmen.SaveTrial(engine=engine,data=rate,tablename='rate',expid=expid)
+    datalayerOmen.SaveTrial(engine=engine,data=BCs,tablename='BCs',expid=expid)
+    datalayerOmen.SaveTrial(engine=engine,data=PSCs,tablename='PSCs',expid=expid)
+    datalayerOmen.SaveTrial(engine=engine,data=wexc_s,tablename='wexc_s',expid=expid,selected_pc=selected_pc,unpivot=True, offset=offset,dfIndex=dfIndex)
     #datalayer.SaveTrial(engine=engine,data=wexc_s,tablename='wexc_s_raw',expid=expid)
     #if runType != "org":
         #datalayer.SaveTrial(engine=engine,data=Apostsyn,tablename='Apostsyn_raw',expid=expid)
@@ -326,9 +326,9 @@ def save_vars_syn_cpp(SpikeM, StateM, RateM, subset, selected_pc, folder, f_name
 
 
 
-    datalayer.SaveTrial(engine=engine,data=BC_spikedata,tablename='BCs',expid=expid)
-    datalayer.SaveTrial(engine=engine,data=spikedata,tablename='SpikeData',expid=expid)
-    datalayer.SaveTrial(engine=engine,data=wexc_s,tablename='wexc_s',expid=expid,selected_pc=selected_pc,unpivot=True, offset=offset,dfIndex=dfIndex)
+    datalayerOmen.SaveTrial(engine=engine,data=BC_spikedata,tablename='BCs',expid=expid)
+    datalayerOmen.SaveTrial(engine=engine,data=spikedata,tablename='SpikeData',expid=expid)
+    datalayerOmen.SaveTrial(engine=engine,data=wexc_s,tablename='wexc_s',expid=expid,selected_pc=selected_pc,unpivot=True, offset=offset,dfIndex=dfIndex)
     results = {"spike_times": spike_times, "spiking_neurons": spiking_neurons, "rate": rate,
                "ws": ws, "PSCs": PSCs, "wexc_s": wexc_s}
     if os.path.isdir(folder) == False:
