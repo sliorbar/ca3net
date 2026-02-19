@@ -101,6 +101,19 @@ def _avg_rate(rate, bin_, zoomed=False):
 
     return avg_rate
 
+## write a function that recieves a matrix weightmx and returs a matrix with the same shape with values are same if larger than 2, halved if values are between 0.2 and 2, and zero otherwise
+def  SynWeightHome(weightmx, pr_value = 2.0, top_value = 1.0, reset_value = 0.01):
+    processed_matrix = np.zeros_like(weightmx)
+
+    # Apply the rules
+    processed_matrix[weightmx > pr_value] = weightmx[weightmx > pr_value] * top_value
+    processed_matrix[(weightmx > pr_value/10) & (weightmx <= pr_value)] = weightmx[(weightmx > pr_value/10) & (weightmx <= pr_value)] / 10.0
+    processed_matrix[(weightmx <= pr_value/10)] = reset_value
+    return processed_matrix
+
+def SynWeightHomeUniform(weightmx, hom_value = 0.9):
+  
+    return weightmx * hom_value
 
 # ========== 2 environments ==========
 

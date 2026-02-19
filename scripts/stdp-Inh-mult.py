@@ -12,10 +12,11 @@ import random as pyrandom
 from brian2 import *
 from brian2.units.allunits import *
 from brian2.units.stdunits import *
-set_device("cpp_standalone")  # speed up the simulation with generated C++ code
 import matplotlib.pyplot as plt
-from helper import load_spike_trains, save_wmx
+from helper import load_spike_trains, save_wmx, load_wmx, SynWeightHome, SynWeightHomeUniform
 from plots import plot_STDP_rule, plot_wmx, plot_wmx_avg, plot_w_distr, save_selected_w, plot_weights
+
+set_device("cpp_standalone",directory='output_online_sim')  # speed up the simulation with generated C++ code
 
 
 warnings.filterwarnings("ignore")
@@ -86,7 +87,7 @@ dx_gaba/dt = -x_gaba/decay_BC_I : 1
 """
 
 
-def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin = None, LoadMatrix = None):
+def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin = None, LoadMatrix = None, select_Conx = 1):
     """
     Takes a spiking group of neurons, connects the neurons sparsely with each other, and learns the weight 'pattern' via STDP:
     exponential STDP: f(s) = A_p * exp(-s/tau_p) (if s > 0), where s=tpost_{spike}-tpre_{spike}
@@ -101,14 +102,17 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin
     np.random.seed(12345)
     pyrandom.seed(12345)
     #plot_STDP_rule(taup/ms, taum/ms, Ap/1e-9, Am/1e-9, "STDP_rule")
-    max_mult = 1.5  # Allow for maximum 1.5x scaling of the Ph2 weight
-    max_mult_BC_E = 1.5  # Allow for maximum 1.5x scaling of the Ph2 weight
-    initial_mult = 1.0  # Initial scaling of the weight - 50%
+    max_mult = 2.0  # Allow for maximum 1.5x scaling of the Ph2 weight
+    max_mult_BC_E = 2.0  # Allow for maximum 1.5x scaling of the Ph2 weight
+    initial_mult = 0.85  # Initial scaling of the weight - 50%
     step_size = 0.03
     inh_tau = 40 * ms
     w_PC_I_inp = 0.65 #* 1e-9 # nS # Taken from Ecker 2022
     w_BC_E_inp = 0.85 #* 1e-9 # nS # Taken from Ecker 2022
     w_BC_I_inp = 5.0 #* 1e-9 # nS # Taken from Ecker 2022
+    #wmax_PC_I = 1.0 # Max weight for PC to BC synapses
+    #wmax_BC_E = 1.5 # Max weight for BC to PC synapses
+    #wmax_BC_I = 8.0 # Max weight for BC to BC synapses
     wmax_PC_I = w_PC_I_inp * max_mult # Allow for maximum 1.5x scaling of the weight
     wmax_BC_E = w_BC_E_inp * max_mult_BC_E # Allow for maximum 1.5x scaling of the weight
     wmax_BC_I = w_BC_I_inp * max_mult # Allow for maximum 1.5x scaling of the weight
@@ -118,6 +122,15 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin
     PC = SpikeGeneratorGroup(nPCs, spiking_neurons, spike_times*second)
     # mimics Brian1's exponential STPD class, with interactions='all', update='additive'
     # see more on conversion: http://brian2.readthedocs.io/en/stable/introduction/brian1_to_2/synapses.html
+    
+    # Conx population - Used to provide Context
+    nConx = 30 # Number of context cells
+    rate_Conx = 15 * Hz #Conx provides context here. 
+    
+    Conx = PoissonGroup(nConx, rate_Conx)
+    w_Conx_E = 10.0 # Very strong connection - e.g.
+    
+    
     
     # Inhinitory population
     BCs = NeuronGroup(nBCs, model=eqs_BC, threshold="vm>spike_th_BC",
@@ -196,6 +209,13 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin
     '''
     # Synapses definition
     #PC to PC STDP
+    if LoadMatrix == "Y":
+        wmx_PC_I = load_wmx(fin[:-4] + "_PC_I.npz")
+        wmx_BC_E = load_wmx(fin[:-4] + "_BC_E.npz")
+        wmx_BC_I = load_wmx(fin[:-4] + "_BC_I.npz")
+        wmx_PC_E = load_wmx(fin)
+        wmx_PC_E.data = SynWeightHome(wmx_PC_E.data, pr_value=wmax*0.9 * scale_factor, top_value=0.95, reset_value=w_init*initial_mult * 1e9)  # Extract data and apply hoemostasis
+        wmx_PC_E.data =  wmx_PC_E.data / scale_factor  # Reverse scaling to get back the original weights
     STDP = Synapses(PC, PC,
             """
             w : 1
@@ -210,16 +230,16 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin
             A_postsyn += Am
             w = clip(w + A_presyn, 0, wmax)
             """)
-    STDP.connect(condition="i!=j", p=connection_prob_PC)
-    #STDP.delay = 0.1 * ms  # Bartos 2002
-    STDP.w = w_init
-    # PC to BC synapses       
-    if LoadMatrix != None:
-        wmx_PC_I = np.load(fin[:-4] + "_PC_I.npz")
-        wmx_BC_E = np.load(fin[:-4] + "_BC_E.npz")
-        wmx_BC_I = np.load(fin[:-4] + "_BC_I.npz")
+    
+    if LoadMatrix == "Y":
+        STDP.connect(i=wmx_PC_E.row, j=wmx_PC_E.col)
+        STDP.w = wmx_PC_E.data * 1e-9 # Convert to nS
+    else:
+        STDP.connect(condition="i!=j", p=connection_prob_PC)
+        STDP.w = w_init
+   
     C_PC_I = Synapses(source=PC, target=BCs, model=synapse_model_PC_I, on_pre= on_pre_setup_PC_I, on_post= on_post_setup_PC_I, delay=delay_PC_I)
-    if LoadMatrix != None:
+    if LoadMatrix == "Y":
         C_PC_I.connect(i=wmx_PC_I.row, j=wmx_PC_I.col)
         C_PC_I.w_e_inh = wmx_PC_I.data
     else:
@@ -228,7 +248,7 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin
     # BC to PC 
     C_BC_E = Synapses(source=BCs, target=PC,model=synapse_model_BC_E, on_pre=on_pre_setup_BC_E, on_post=on_post_setup_BC_E , delay=delay_BC_E)
     
-    if LoadMatrix != None:
+    if LoadMatrix == "Y":
         C_BC_E.connect(i=wmx_BC_E.row, j=wmx_BC_E.col)
         C_BC_E.w_i_exc = wmx_BC_E.data
     else:
@@ -237,15 +257,23 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin
     # BC to BC
     C_BC_I = Synapses(source=BCs, target=BCs,model=synapse_model_BC_I , on_pre=on_pre_setup_BC_I, on_post= on_post_setup_BC_I, delay=delay_BC_I)
     
-    if LoadMatrix != None:
+    if LoadMatrix == "Y":
         C_BC_I.connect(i=wmx_BC_I.row, j=wmx_BC_I.col)
         C_BC_I.w_i_inh = wmx_BC_I.data
     else:
         C_BC_I.connect(p=connection_prob_BC)
         C_BC_I.w_i_inh = w_BC_I_inp
 
-    #Run the simulation
+    # Conx synapses
+    
+    Conx_Syn = Synapses(Conx, BCs, on_pre="x_ampa+=norm_PC_I*w_Conx_E")
+    #Conx_Syn = Synapses(Conx, BCs, on_pre="x_gaba+=norm_BC_I*w_Conx_E")
+    if select_Conx == 1:
+        Conx_Syn.connect(j="i")
+    else:
+        Conx_Syn.connect(j="i+nConx")
 
+    #device.build(directory='output_online_sim', compile=True, run=False, debug=True, clean=True)
     run(400*second, report="text")
     
     weightmx = np.zeros((nPCs, nPCs))
@@ -266,9 +294,11 @@ if __name__ == "__main__":
     try:
         STDP_mode = sys.argv[2]
         LoadMatrix = sys.argv[3]
+        select_Conx = int(sys.argv[4])
     except:
         STDP_mode = "sym"
-        LoadMatrix = None
+        LoadMatrix = "N"
+        select_Conx = 1
     assert STDP_mode in ["asym", "sym"]
 
     place_cell_ratio = 0.5
@@ -287,16 +317,22 @@ if __name__ == "__main__":
         scale_factor = 1.27
     elif STDP_mode == "sym":
         taup = taum = 62.5 * ms
+        #taup = taum = 30.0 * ms
         Ap = Am = 4e-3
-        wmax = 2e-8  # S
+        #wmax = 1.8*1e-8  # S
+        wmax = 2.0*1e-8  # S
         scale_factor = 0.62
+        #wmax = wmax * scale_factor
     w_init = 1e-10  # S
     Ap *= wmax; Am *= wmax  # needed to reproduce Brian1 results
 
     spiking_neurons, spike_times = load_spike_trains(os.path.join(base_path, "files", f_in))
 
-    weightmx, wmatrix_PCI, wmatrix_BC_E, wmatrix_BC_I = learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init)
-    weightmx *= scale_factor  # quick and dirty additional scaling! (in an ideal world the STDP parameters should be changed to include this scaling...)
+    weightmx, wmatrix_PCI, wmatrix_BC_E, wmatrix_BC_I = learning(spiking_neurons = spiking_neurons, spike_times = spike_times, taup = taup, taum = taum, Ap = Ap, Am = Am, wmax = wmax, w_init = w_init, select_Conx = select_Conx, LoadMatrix = LoadMatrix, fin = os.path.join(base_path, "files", f_out))
+    #if LoadMatrix != "Y":
+    #    weightmx *= scale_factor  # quick and dirty additional scaling! (in an ideal world the STDP parameters should be changed to include this scaling...)
+    print("Applied scale factor: %.2f" % scale_factor)
+    weightmx *= scale_factor
     #wmatrix_PCI *= scale_factor
     #wmatrix_BC_E *= scale_factor
     #wmatrix_BC_I *= scale_factor

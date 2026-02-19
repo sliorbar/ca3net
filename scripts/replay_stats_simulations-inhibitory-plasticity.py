@@ -31,8 +31,23 @@ from helper import load_wmx, preprocess_monitors, generate_cue_spikes,\
 from detect_replay import replay_circular, slice_high_activity, replay_linear
 from detect_oscillations import analyse_rate, ripple_AC, ripple, gamma, calc_TFR, analyse_estimated_LFP
 from plots import plot_violin, plot_raster, plot_posterior_trajectory, plot_PSD, plot_TFR, plot_zoomed, plot_detailed, plot_LFP, set_fig_dir, plot_wmx,set_len_sim,plot_histogram_wmx, plot_Zoom_Weights,fig_dir
+from brian2 import prefs
 
+# Force C++17 for NVCC and for the host compiler it invokes
+#prefs.codegen.cpp.extra_compile_args = ['-std=c++17']
+#prefs.codegen.cpp.extra_link_args = []
+
+# Keep your NVCC-side C++17 too (fine to keep)
+#prefs.devices.cuda_standalone.cuda_backend.extra_compile_args_nvcc = [
+#    "-w", "-use_fast_math",
+#    "--std=c++17",
+#]
+#prefs.devices.cpp_standalone.extra_make_args_unix = ["-j8"]
+#prefs.devices.cpp_standalone.extra_make_args_unix = [
+#    "CXXFLAGS=-std=c++17",
+#]
 set_device('cpp_standalone', build_on_run=False)
+#set_device('cuda_standalone', build_on_run=False)
 
 
 base_path = os.path.sep.join(os.path.abspath("__file__").split(os.path.sep)[:-2])
@@ -42,7 +57,7 @@ RunType = "org"
 ##############Start  of LB parameters ###############
 org_sim_len = 1000 # First part of the simulation - Can be used to store synaptic weights
 first_break_sim_len = 4000 #First break duration in ms can be used to store synaptic weights
-end_sim_len = 25000 #Duration in ms of entire simulation
+end_sim_len = 10000 #Duration in ms of entire simulation
 #taup_sim = 20 #pre synaptic stdp constant
 #taum_sim = 20 #post synaptic stdp constant
 #stdp_post_scale_factor = -0.1 # Post before pre factor - Positive number is LTD
@@ -181,7 +196,7 @@ dx_gaba/dt = -x_gaba/decay_BC_I : 1
 
 #def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = None, engine=None, verbose=True, folder=None, expid=None):
 def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, STDP_mode, cue, save, save_slice, seed, expdesc=None, engine=None, verbose=True, folder=None, expid=None,
-                   taup_sim=20, taum_sim=20, stdp_post_scale_factor=-0.1, stdp_pre_scale_factor=-0.1, delay_PC_E=2.2, Learning_Rate=0.01,connection_prob_PC = 0.1, connection_prob_BC = 0.25):
+                   taup_sim=20, taum_sim=20, stdp_post_scale_factor=-0.1, stdp_pre_scale_factor=-0.1, delay_PC_E=2.2, Learning_Rate=0.01,connection_prob_PC = 0.1, connection_prob_BC = 0.25, place_cell_ratio=0.5, STDP_Mode_Input = 'sym'):
 
     """
     Sets up the network and runs simulation
@@ -516,7 +531,7 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, STDP_mode, cue, save, 
     else:
         net.run(end_sim_len*ms)
     
-    device.build(directory='output', compile=True, run=True, debug=True)
+    device.build(directory='output', compile=True, run=True, debug=True, clean=True)
     
     if save:
         save_vars(SM_PC, RM_PC, StateM_PC, selection, seed)
@@ -526,10 +541,21 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, STDP_mode, cue, save, 
     # For iteration with the matrix - Save the synaptic weights
     f_out = "wmx_after_run_%s_%.1f_linear-itr2.npz" % (STDP_mode, place_cell_ratio) if linear else "wmx_after_run_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)
     weightmx = np.zeros((nPCs, nPCs))
+    weightmx_PC_I = np.zeros((nPCs, nBCs))
+    weightmx_BC_E = np.zeros((nBCs, nPCs))
+    weightmx_BC_I = np.zeros((nBCs, nBCs))
     # Set values larger than 1e-10
     min_val = 0
     mask = C_PC_E_STDP.w_exc[:] > min_val # Create a mask for values greater than 1e-10 * 0.62
     weightmx[C_PC_E_STDP.i[:], C_PC_E_STDP.j[:]] = C_PC_E_STDP.w_exc[:]
+    weightmx_PC_I[C_PC_I.i[:], C_PC_I.j[:]] = C_PC_I.w_PC_I[:]
+    weightmx_BC_E[C_BC_E.i[:], C_BC_E.j[:]] = C_BC_E.w_BC_E[:]
+    weightmx_BC_I[C_BC_I.i[:], C_BC_I.j[:]] = C_BC_I.w_BC_I[:]
+    f_out_matrix = "wmx_%s_%.1f_linear.npz" % (STDP_Mode_Input, place_cell_ratio)
+    save_wmx(weightmx, os.path.join(base_path, "files", f_out_matrix))
+    save_wmx(weightmx_PC_I, os.path.join(base_path, "files", f_out_matrix[:-4] + "_PC_I.npz"))
+    save_wmx(weightmx_BC_E, os.path.join(base_path, "files", f_out_matrix[:-4] + "_BC_E.npz"))
+    save_wmx(weightmx_BC_I, os.path.join(base_path, "files", f_out_matrix[:-4] + "_BC_I.npz"))
     #weightmx[C_PC_E_STDP.i[mask], C_PC_E_STDP.j[mask]] = C_PC_E_STDP.w_exc[mask]
     #weightmx =  weightmx * 1e9 #nS conversion
     #PCs_Weights_filtered = np.where(PCs_Weights > min_val, PCs_Weights, 0)
@@ -608,9 +634,9 @@ if __name__ == "__main__":
     seed = 12345
 
     # Set ranges for each parameter
-    taup_sim_range = (10, 15)  # Example range for taup_sim
-    taum_sim_range = (10, 15)  # Example range for taum_sim
-    stdp_pre_scale_factor_range = (-0.2,-0.1)  # Example range for stdp_pre_scale_factor
+    taup_sim_range = (15, 20)  # Example range for taup_sim
+    taum_sim_range = (15, 20)  # Example range for taum_sim
+    stdp_pre_scale_factor_range = (-0.2, -0.1)  # Example range for stdp_pre_scale_factor
     stdp_post_scale_factor_range = (0.1, 0.2)  # Example range for stdp_post_scale_factor
     PC_SynDelay_range = (2.2, 2.3)  # Example range for PC_SynDelay
     Learning_Rate_range = (0.02, 0.02)  # Example range for Learning_Rate
@@ -675,7 +701,7 @@ if __name__ == "__main__":
         wmx_PC_E=wmx_PC_E, wmx_PC_I=wmx_PC_I, wmx_BC_E=wmx_BC_E, wmx_BC_I=wmx_BC_I, STDP_mode=STDP_mode, cue=cue, save=save, save_slice=save_slice, expdesc=FolderDescription,
         engine=engine, seed=seed, verbose=verbose, folder=dir_name_save, expid=expid,
         taup_sim=taup_sim, taum_sim=taum_sim, stdp_post_scale_factor=stdp_post_scale_factor, 
-        stdp_pre_scale_factor=stdp_pre_scale_factor, delay_PC_E=PC_SynDelay, Learning_Rate=Learning_Rate,connection_prob_PC=connection_prob_PC,connection_prob_BC=connection_prob_BC)
+        stdp_pre_scale_factor=stdp_pre_scale_factor, delay_PC_E=PC_SynDelay, Learning_Rate=Learning_Rate,connection_prob_PC=connection_prob_PC,connection_prob_BC=connection_prob_BC, STDP_Mode_Input = STDP_mode_Input)
     
     #output_w = SynWeightHome(weightmx,syn_preserve) 
     #output_w = SynWeightHomeUniform(weightmx,0.9)
