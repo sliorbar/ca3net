@@ -245,8 +245,11 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin
         C_BC_I.w_i_inh = w_BC_I_inp
 
     #Run the simulation
-
+    SM_PC = SpikeMonitor(PC)
+    SM_BC = SpikeMonitor(BCs)
     run(400*second, report="text")
+    print("Total spikes - SM_PC:", SM_PC.num_spikes)
+    print("Total spikes - SM_BC:", SM_BC.num_spikes)
     
     weightmx = np.zeros((nPCs, nPCs))
     weightmx[STDP.i[:], STDP.j[:]] = STDP.w[:]

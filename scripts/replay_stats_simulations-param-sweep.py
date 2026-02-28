@@ -438,9 +438,9 @@ if __name__ == "__main__":
     linear = True
     seed = 12345
 
-    taup_sim_range = (0, 1)  # Example range for taup_sim
-    taum_sim_range = (0, 1)  # Example range for taum_sim
-    stdp_pre_scale_factor_range = (0,0)  # Example range for stdp_pre_scale_factor
+    taup_sim_range = (10, 20)  # Example range for taup_sim
+    taum_sim_range = (10, 20)  # Example range for taum_sim
+    stdp_pre_scale_factor_range = (-0.2,-0.1)  # Example range for stdp_pre_scale_factor
     stdp_post_scale_factor_range = (0.1, 0.2)  # Example range for stdp_post_scale_factor
     PC_SynDelay_range = (2.2, 2.3)  # Example range for PC_SynDelay
     Learning_Rate_range = (0.02, 0.02)  # Example range for Learning_Rate

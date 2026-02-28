@@ -1,0 +1,6 @@
+#ifndef _INCLUDED_poissongroup_spike_thresholder_codeobject_2_after
+#define _INCLUDED_poissongroup_spike_thresholder_codeobject_2_after
+
+void _after_run_poissongroup_spike_thresholder_codeobject_2();
+
+#endif

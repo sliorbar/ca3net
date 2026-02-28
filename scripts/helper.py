@@ -103,13 +103,16 @@ def _avg_rate(rate, bin_, zoomed=False):
 
 ## write a function that recieves a matrix weightmx and returs a matrix with the same shape with values are same if larger than 2, halved if values are between 0.2 and 2, and zero otherwise
 def  SynWeightHome(weightmx, pr_value = 2.0, top_value = 1.0, reset_value = 0.01):
+    source_shape = np.shape(weightmx)
+    weightmx = np.asarray(weightmx)
     processed_matrix = np.zeros_like(weightmx)
 
     # Apply the rules
     processed_matrix[weightmx > pr_value] = weightmx[weightmx > pr_value] * top_value
-    processed_matrix[(weightmx > pr_value/10) & (weightmx <= pr_value)] = weightmx[(weightmx > pr_value/10) & (weightmx <= pr_value)] / 10.0
-    processed_matrix[(weightmx <= pr_value/10)] = reset_value
-    return processed_matrix
+    #processed_matrix[(weightmx > pr_value/10) & (weightmx <= pr_value)] = weightmx[(weightmx > pr_value/10) & (weightmx <= pr_value)] / 10.0
+    #processed_matrix[(weightmx <= pr_value/10)] = reset_value
+    processed_matrix[(weightmx <= pr_value) & (weightmx > 0.0)] = reset_value
+    return processed_matrix.reshape(source_shape)
 
 def SynWeightHomeUniform(weightmx, hom_value = 0.9):
   
@@ -601,18 +604,28 @@ def argmin_time_arrays(time_short, time_long):
     return [np.argmin(np.abs(time_long-t)) for t in time_short]
 
 
-def generate_cue_spikes(rate=20.0,rnd=10,duration = 0.2, neurons=11):
+def generate_cue_spikes(rate=20.0, rnd=10, duration=0.2, neurons=11, dt=1e-4):
     """Generates short (200ms) Poisson spike train at 20Hz (with brian2's `PoissonGroup()` one can't specify the duration)"""
 
-    spike_times = np.asarray(hom_poisson(rate, rnd, t_max=duration, seed=12345))
-    spiking_neurons = np.zeros_like(spike_times)
-    for neuron_id in range(1, neurons):
-        spike_times_tmp = np.asarray(hom_poisson(rate, rnd, t_max=duration, seed=12345+neuron_id))
-        spike_times = np.concatenate((spike_times, spike_times_tmp), axis=0)
-        spiking_neurons_tmp = neuron_id * np.ones_like(spike_times_tmp)
-        spiking_neurons = np.concatenate((spiking_neurons, spiking_neurons_tmp), axis=0)
+    all_spike_times = []
+    all_spiking_neurons = []
+    for neuron_id in range(neurons):
+        spike_times_neuron = np.asarray(hom_poisson(rate, rnd, t_max=duration, seed=12345 + neuron_id), dtype=float)
+        if spike_times_neuron.size:
+            time_bins = np.floor(spike_times_neuron / dt).astype(np.int64)
+            unique_bins = np.unique(time_bins)
+            spike_times_neuron = unique_bins.astype(float) * dt
+            all_spike_times.append(spike_times_neuron)
+            all_spiking_neurons.append(np.full(spike_times_neuron.shape, neuron_id, dtype=int))
 
-    return spike_times, spiking_neurons
+    if not all_spike_times:
+        return np.array([], dtype=float), np.array([], dtype=int)
+
+    spike_times = np.concatenate(all_spike_times)
+    spiking_neurons = np.concatenate(all_spiking_neurons)
+    sort_idx = np.argsort(spike_times, kind="mergesort")
+
+    return spike_times[sort_idx], spiking_neurons[sort_idx]
 
 
 def calc_spiketrain_ISIs():
