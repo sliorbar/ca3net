@@ -305,7 +305,7 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin
     
     if LoadMatrix == "Y":
         STDP.connect(i=wmx_PC_E.row, j=wmx_PC_E.col)
-        STDP.w_exc = wmx_PC_E.data # Convert to nS
+        STDP.w_exc = wmx_PC_E.data 
     else:
         STDP.connect(condition="i!=j", p=connection_prob_PC)
         STDP.w_exc = w_init
