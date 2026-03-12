@@ -51,7 +51,7 @@ base_path = os.path.sep.join(os.path.abspath("__file__").split(os.path.sep)[:-2]
 adapt_mult = 1.0
 nPCs = 8000
 #nBCs = 150
-nBCs = 300
+nBCs = 400
 plasticity_scale_factor = 0.5  # scaling factor for the STDP window 
 # sparseness
 connection_prob_PC = 0.1
@@ -119,7 +119,7 @@ delay_BC_E = 0.9 * ms  # Geiger 1997 (data from DG)
 delay_BC_I = 0.6 * ms  # Bartos 2002
 '''Modify the code to remove synaptic delay'''
 #z = 1 * nS
-wmax = 2e-8  # S
+#wmax = 2e-8  # S
 # synaptic reversal potentials
 Erev_E = 0.0 * mV
 Erev_I = -70.0 * mV
@@ -175,8 +175,8 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin
     #wmax_PC_I = w_PC_I_inp * max_mult # Allow for maximum 1.5x scaling of the weight
     #wmax_BC_E = w_BC_E_inp * max_mult_BC_E # Allow for maximum 1.5x scaling of the weight
     #wmax_BC_I = w_BC_I_inp * max_mult # Allow for maximum 1.5x scaling of the weight
-    wmax_PC_I = 1.2 # Allow for maximum  scaling of the weight
-    wmax_BC_E = 1.8 # Allow for maximum  scaling of the weight
+    wmax_PC_I = 1.8 # Allow for maximum  scaling of the weight
+    wmax_BC_E = 2.4 # Allow for maximum  scaling of the weight
     wmax_BC_I = 10.0 # Allow for maximum scaling of the weight
     w_PC_I_inp = w_PC_I_inp * initial_mult
     w_BC_E_inp = w_BC_E_inp * initial_mult
@@ -191,11 +191,11 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin
     PCs = SpikeGeneratorGroup(nPCs, spiking_neurons, spike_times*second)
     
     # Conx population - Used to provide Context
-    nConx = 60 # Number of context cells
-    rate_Conx = 14.0 * Hz #Conx provides context here. Twice theta frequency, to ensure that they can provide context during the entire simulation, even if they are not perfectly phase-locked to the theta rhythm.
+    nConx = 100 # Number of context cells
+    rate_Conx = 28.0 * Hz #Conx provides context here. Twice theta frequency, to ensure that they can provide context during the entire simulation, even if they are not perfectly phase-locked to the theta rhythm.
     
     Conx = PoissonGroup(nConx, rate_Conx)
-    w_Conx_E = 10.0 # Very strong connection - e.g.
+    w_Conx_E = 15.0 # Very strong connection - e.g.
     
     
     
@@ -413,23 +413,23 @@ if __name__ == "__main__":
     # STDP parameters (see `optimization/analyse_STDP.py`)
     if STDP_mode == "asym":
         taup = taum = 20 * ms
-        Ap = 0.01
-        Am = -Ap
-        wmax = 4e-8  # S
-        scale_factor = 1.27
+        #Ap = 0.01
+        #Am = -Ap
+        #wmax = 4e-8  # S
+        #scale_factor = 1.27
     elif STDP_mode == "sym":
         taup = taum = 62.5 * ms
         #taup = taum = 20.0 * ms
-        Ap = Am = 4e-3  # Same ratio as original (4e-3 * wmax)
-        wmax = 2e-8  # S
-        scale_factor = 0.62
+        #Ap = Am = 4e-3  # Same ratio as original (4e-3 * wmax)
+        #wmax = 2e-8  # S
+        #scale_factor = 0.62
         #wmax = wmax * scale_factor
     # w_init in same units as wmax (dimensionless, represents nS)
     # Original: 1e-10 S = 0.0001 nS, which is 0.5% of 2e-8 S = 20 nS
     # For wmax=7 nS, 0.5% would be 0.035, but start even smaller
     # w_init = 1e-10  # dimensionless (represents 0.00035 nS, ~0.005% of wmax)
     Ap = Am = 0.01
-    wmax = 6.0 # in nS, to match the original scale of the weights in Ecker 2022 (after scaling with scale_factor)
+    wmax = 5.0 # 
     w_init = 0.1
     Ap *= wmax; Am *= wmax  # needed to reproduce Brian1 results
 

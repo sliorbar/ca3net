@@ -1,7 +1,0 @@
-#ifndef _INCLUDED_neurongroup_spike_thresholder_codeobject_2
-#define _INCLUDED_neurongroup_spike_thresholder_codeobject_2
-
-void _run_neurongroup_spike_thresholder_codeobject_2();
-
-
-#endif
