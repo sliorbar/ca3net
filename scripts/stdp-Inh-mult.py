@@ -175,8 +175,8 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin
     #wmax_PC_I = w_PC_I_inp * max_mult # Allow for maximum 1.5x scaling of the weight
     #wmax_BC_E = w_BC_E_inp * max_mult_BC_E # Allow for maximum 1.5x scaling of the weight
     #wmax_BC_I = w_BC_I_inp * max_mult # Allow for maximum 1.5x scaling of the weight
-    wmax_PC_I = 1.8 # Allow for maximum  scaling of the weight
-    wmax_BC_E = 2.4 # Allow for maximum  scaling of the weight
+    wmax_PC_I = 1.2 # Allow for maximum  scaling of the weight
+    wmax_BC_E = 1.8 # Allow for maximum  scaling of the weight
     wmax_BC_I = 10.0 # Allow for maximum scaling of the weight
     w_PC_I_inp = w_PC_I_inp * initial_mult
     w_BC_E_inp = w_BC_E_inp * initial_mult

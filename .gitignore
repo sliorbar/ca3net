@@ -3,11 +3,17 @@
 *html
 .ipynb_checkpoints
 .venv/
+.env
+.env.*
+ca3net.env
+ca3net.*.env
+!.env.example
 figures/
 files/*pkl
 files/*npz
 files/results/
 scripts/output/
+scripts/output_replay/
 scripts/var/
 scripts/optimization/Mishra_2016/
 scripts/optimization/checkpoints/

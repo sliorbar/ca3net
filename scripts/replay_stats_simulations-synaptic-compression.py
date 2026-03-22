@@ -13,7 +13,8 @@ from brian2.units.stdunits import *
 from brian2.utils.caching import *
 import numpy as np
 import scipy
-import datalayer
+#import datalayer
+import datalayerOmen
 import random as pyrandom
 import sqlalchemy as sql
 import pandas as pd
@@ -26,7 +27,7 @@ import brian2cuda
 import random
 #import brian2genn
 from helper import load_wmx, preprocess_monitors, generate_cue_spikes,\
-                   save_vars, save_PSD, save_TFR, save_LFP, save_replay_analysis,save_wmx,save_vars_syn,SynWeightDist,save_vars_syn_cpp
+                   save_vars, save_PSD, save_TFR, save_LFP, save_replay_analysis,save_wmx,save_vars_syn,SynWeightDist,save_vars_syn_cpp, SynWeightHome, SynWeightHomeUniform
 from detect_replay import replay_circular, slice_high_activity, replay_linear
 from detect_oscillations import analyse_rate, ripple_AC, ripple, gamma, calc_TFR, analyse_estimated_LFP
 from plots import plot_violin, plot_raster, plot_posterior_trajectory, plot_PSD, plot_TFR, plot_zoomed, plot_detailed, plot_LFP, set_fig_dir, plot_wmx,set_len_sim,plot_histogram_wmx, plot_Zoom_Weights,fig_dir
@@ -41,7 +42,7 @@ RunType = "org"
 ##############Start  of LB parameters ###############
 org_sim_len = 1000 # First part of the simulation - Can be used to store synaptic weights
 first_break_sim_len = 4000 #First break duration in ms can be used to store synaptic weights
-end_sim_len = 5000 #Duration in ms of entire simulation
+end_sim_len = 10000 #Duration in ms of entire simulation
 #taup_sim = 20 #pre synaptic stdp constant
 #taum_sim = 20 #post synaptic stdp constant
 stdp_post_scale_factor = -0.1 # Post before pre factor - Positive number is LTD
@@ -354,7 +355,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc=Non
 
     syn_slice = upstream_neurons.values
     
-    datalayer.UpdateTrial(engine=engine,description=expdesc,details=synapse_details,expid=expid)
+    datalayerOmen.UpdateTrial(engine=engine,description=expdesc,details=synapse_details,expid=expid)
     
     if RunType == "org":
         net = Network(PCs,BCs,MF,C_PC_MF,C_PC_E,C_PC_I,C_BC_E,C_BC_I, SM_PC,SM_BC,RM_PC,RM_BC,StateM_PC,StateM_BC)
@@ -392,7 +393,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc=Non
         save_vars(SM_PC, RM_PC, StateM_PC, selection, seed)
     if save_slice and RunType != "org" :
         save_vars_syn_cpp(StateM=C_PC_E_SM, folder=fig_dir, SpikeM=SM_PC,SpikeM_BC = SM_BC, selected_pc=detailed_selection, subset = subset_df ,RateM=RM_PC, RateM_BC = RM_BC,engine=engine,expid=expid,offset=0,runType=RunType,synapses=C_PC_E_STDP)
-    datalayer.CloseTrial(engine=engine,expid=expid)
+    datalayerOmen.CloseTrial(engine=engine,expid=expid)
     # For iteration with the matrix - Save the synaptic weights
     f_out = "wmx_after_run_%s_%.1f_linear-itr2.npz" % (STDP_mode, place_cell_ratio) if linear else "wmx_after_run_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)
     weightmx = np.zeros((nPCs, nPCs))
@@ -410,6 +411,7 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc=Non
 
 
 ## write a function that recieves a matrix weightmx and returs a matrix with the same shape with values are same if larger than 2, halved if values are between 0.2 and 2, and zero otherwise
+'''
 def SynWeightHome(weightmx, pr_value = 2):
     processed_matrix = np.zeros_like(weightmx)
 
@@ -422,7 +424,7 @@ def SynWeightHome(weightmx, pr_value = 2):
 def SynWeightHomeUniform(weightmx, hom_value = 0.9):
   
     return weightmx * hom_value
-    
+'''    
 
 if __name__ == "__main__":
     try:
@@ -448,22 +450,22 @@ if __name__ == "__main__":
     seed = 12345
 
     # Set ranges for each parameter
-    taup_sim_range = (10, 10)  # Example range for taup_sim
-    taum_sim_range = (10, 10)  # Example range for taum_sim
-    stdp_post_scale_factor_range = (-1.0, 1.0)  # Example range for stdp_post_scale_factor
-    stdp_pre_scale_factor_range = (0.2, 0.2)  # Example range for stdp_pre_scale_factor
+    taup_sim_range = (15, 15)  # Example range for taup_sim
+    taum_sim_range = (15, 15)  # Example range for taum_sim
+    stdp_post_scale_factor_range = (-0.12, -0.1)  # Example range for stdp_post_scale_factor
+    stdp_pre_scale_factor_range = (-0.12, -0.1)  # Example range for stdp_pre_scale_factor
     PC_SynDelay_range = (2.2, 2.3)  # Example range for PC_SynDelay
     Learning_Rate_range = (0.01, 0.03)  # Example range for Learning_Rate
-    place_cell_ratio_range = (0.5, 0.501)  # Example range for place_cell_ratio
-    connection_prob_PC_range = (0.1,0.101)
-    connection_prob_BC_range = (0.25,0.2501)
+    place_cell_ratio_range = (0.5, 0.5)  # Example range for place_cell_ratio
+    connection_prob_PC_range = (0.1,0.1)
+    connection_prob_BC_range = (0.25,0.25)
     syn_preserve_range = (2.5,4.0) # Range for synaptic preservation for synaptic tagging homeostasis in nS
 
     # Number of Monte Carlo simulations to run
     #num_simulations = 5
 
     # Initialize SQL engine
-    engine = datalayer.InitializeSQLEngine()
+    engine = datalayerOmen.InitializeSQLEngine()
 
     # Randomly select parameters from the defined ranges
     taup_sim = random.uniform(*taup_sim_range)
@@ -472,8 +474,8 @@ if __name__ == "__main__":
     stdp_pre_scale_factor = random.uniform(*stdp_pre_scale_factor_range) 
     
     # Make stdp kernel asymmetric
-    #stdp_post_scale_factor = stdp_pre_scale_factor *-1 # asymmetric STDP
-    stdp_post_scale_factor = stdp_pre_scale_factor # symmetric STDP
+    stdp_post_scale_factor = stdp_pre_scale_factor *-1 # asymmetric STDP
+    #stdp_post_scale_factor = stdp_pre_scale_factor # symmetric STDP
     taum_sim = taup_sim
     
     PC_SynDelay = random.uniform(*PC_SynDelay_range)
@@ -487,7 +489,7 @@ if __name__ == "__main__":
     place_cell_ratio = 0.5
 
     # Update folder description for each combination
-    expid = datalayer.InitializeTrial(engine=engine, description='syn-compression', 
+    expid = datalayerOmen.InitializeTrial(engine=engine, description='syn-compression', 
                                         details=f'taup_sim={taup_sim}, taum_sim={taum_sim}, PC_SynDelay={PC_SynDelay}')
     FolderDescription = f"{expid}-{FolderDescription}-MC_taup_{taup_sim:.2f}_Ap-scape_{stdp_pre_scale_factor:.2f}_delay_{PC_SynDelay:.2f}_syn_preserve_{syn_preserve:.2f}"
     
@@ -514,14 +516,24 @@ if __name__ == "__main__":
         taup_sim=taup_sim, taum_sim=taum_sim, stdp_post_scale_factor=stdp_post_scale_factor, 
         stdp_pre_scale_factor=stdp_pre_scale_factor, delay_PC_E=PC_SynDelay, Learning_Rate=Learning_Rate,connection_prob_PC=connection_prob_PC,connection_prob_BC=connection_prob_BC)
     
-    #output_w = SynWeightHome(weightmx,syn_preserve)
-    output_w = SynWeightHomeUniform(weightmx,0.9) # 10% reduction in synaptic weights
+    output_w = SynWeightHome(weightmx,pr_value=syn_preserve) # Homeostatic synaptic compression with syn_preserve nS preservation threshold
+    # Save only three values: threshold, count below threshold, and count at/above threshold
+    flattened_weights = output_w.flatten()
+    weight_counts = pd.Series({
+        "syn_preserve_value": float(syn_preserve),
+        "below_syn_preserve": int(np.sum(flattened_weights <= syn_preserve)),
+        "above_syn_preserve": int(np.sum(flattened_weights > syn_preserve)),
+    })
+    print("Synaptic weight summary after homeostatic compression:")
+    print(weight_counts)
+    datalayerOmen.SaveTrial(engine=engine, expid=expid,tablename="synaptic_weights_bins",data=[weight_counts.to_dict()])
+    #output_w = SynWeightHomeUniform(weightmx,0.9) # 10% reduction in synaptic weights
     #output_w = SynWeightHomeUniform(output_w,0.95)
     # Save the synaptic weights using f_in as the file name
     save_wmx(output_w, os.path.join(base_path, "files", f_in))
     
 
-    device.delete()
+    #device.delete()
     plt.show()
 
   

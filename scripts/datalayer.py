@@ -1,26 +1,75 @@
 from pandas.io.formats.style_render import Subset
 import pyodbc
 import urllib
+import os
 import datetime
 from pandas import DataFrame as df
 from sqlalchemy import create_engine
 from sympy import false
+
+def _load_dotenv():
+    """
+    Load key=value pairs from a local .env file without requiring extra packages.
+    Existing environment variables are preserved.
+    """
+    candidate_paths = [
+        os.path.join(os.getcwd(), "ca3net.env"),
+        os.path.join(os.path.dirname(__file__), "ca3net.env"),
+        os.path.join(os.path.dirname(os.path.dirname(__file__)), "ca3net.env"),
+        os.path.join(os.getcwd(), ".env"),
+        os.path.join(os.path.dirname(__file__), ".env"),
+        os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"),
+    ]
+
+    for env_path in candidate_paths:
+        if not os.path.exists(env_path):
+            continue
+
+        with open(env_path, "r", encoding="utf-8") as env_file:
+            for raw_line in env_file:
+                line = raw_line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+
+                key, value = line.split("=", 1)
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+                os.environ.setdefault(key, value)
+        break
+
+
 def InitializeSQLEngine():
     """
     Create a new instance of sql engine to log experiment data
     """
-    #server = 'LB_ASUS_2022'  # e.g., 'localhost\SQLEXPRESS'
-    server = 'LB_Desktop'
-    #database = 'CUNY'
-    database = 'CUNY'
-    username = 'lior_cuny'
-    password = '!CUNEWyork2018'
+    _load_dotenv()
+
+    WINDOWS_HOST = os.environ.get("OMEN_DB_HOST")
+    DB = os.environ.get("OMEN_DB_NAME", "CUNY")
+    USER = os.environ.get("OMEN_DB_USER")
+    PWD = os.environ.get("OMEN_DB_PASSWORD")
+
+    if not USER or not PWD:
+        raise ValueError(
+            "Missing database credentials. Set OMEN_DB_USER and "
+            "OMEN_DB_PASSWORD in your environment or .env file."
+        )
 
 # Create the connection string
-    conn_str = f'mssql+pyodbc://{username}:{password}@{server}/{database}?driver=ODBC+Driver+17+for+SQL+Server'
+    odbc_str = (
+    "DRIVER={ODBC Driver 18 for SQL Server};"
+    f"SERVER={WINDOWS_HOST},1433;"
+    f"DATABASE={DB};"
+    f"UID={USER};PWD={PWD};"
+    "Encrypt=yes;TrustServerCertificate=yes;"
+    )
 
-    #engine = create_engine("mssql+pyodbc://lior_cuny:!CUNEWyork2019@CUNY2",fast_executemany=True)
-    engine = create_engine(conn_str,fast_executemany=True)
+    params = urllib.parse.quote_plus(odbc_str)
+
+    engine = create_engine(
+        f"mssql+pyodbc:///?odbc_connect={params}",
+        fast_executemany=True,
+)
     return engine
 
 def InitializeTrial(engine,description,details='test'):
