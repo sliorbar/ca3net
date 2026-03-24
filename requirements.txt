@@ -10,4 +10,5 @@ tqdm
 opencv-python
 pyodbc
 sqlalchemy
+python-dotenv
 

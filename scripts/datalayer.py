@@ -1,26 +1,78 @@
-from pandas.io.formats.style_render import Subset
+import datetime
+import os
+from pathlib import Path
+
 import pyodbc
 import urllib
-import datetime
 from pandas import DataFrame as df
+from pandas.io.formats.style_render import Subset
 from sqlalchemy import create_engine
 from sympy import false
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
+
+
+def _parse_env_file(env_path):
+    """Minimal .env parser so local config works even without python-dotenv."""
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("'\"")
+
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+def _load_project_env():
+    """Load environment variables from the project .env file when available."""
+    env_path = Path(__file__).resolve().parents[1] / ".env"
+    if env_path.exists():
+        if load_dotenv is not None:
+            load_dotenv(env_path)
+        else:
+            _parse_env_file(env_path)
+    else:
+        print(
+            f"Warning: .env file is missing at {env_path}. "
+            "Environment variables must be set in the shell."
+        )
+
+
+def _require_env(var_name):
+    value = os.getenv(var_name)
+    if not value:
+        raise RuntimeError(
+            f"Missing required environment variable '{var_name}'. "
+            "Create a .env file in the project root or set it in your shell."
+        )
+    return value
+
+
 def InitializeSQLEngine():
     """
     Create a new instance of sql engine to log experiment data
     """
-    #server = 'LB_ASUS_2022'  # e.g., 'localhost\SQLEXPRESS'
-    server = 'LB_Desktop'
-    #database = 'CUNY'
-    database = 'CUNY'
-    username = 'lior_cuny'
-    password = '!CUNEWyork2018'
+    _load_project_env()
 
-# Create the connection string
-    conn_str = f'mssql+pyodbc://{username}:{password}@{server}/{database}?driver=ODBC+Driver+17+for+SQL+Server'
+    server = _require_env("CA3NET_DB_SERVER")
+    database = _require_env("CA3NET_DB_NAME")
+    username = _require_env("CA3NET_DB_USER")
+    password = _require_env("CA3NET_DB_PASSWORD")
+    driver = os.getenv("CA3NET_DB_DRIVER", "ODBC Driver 17 for SQL Server")
 
-    #engine = create_engine("mssql+pyodbc://lior_cuny:!CUNEWyork2019@CUNY2",fast_executemany=True)
-    engine = create_engine(conn_str,fast_executemany=True)
+    conn_str = (
+        f"mssql+pyodbc://{username}:{password}@{server}/{database}"
+        f"?driver={driver.replace(' ', '+')}"
+    )
+
+    engine = create_engine(conn_str, fast_executemany=True)
     return engine
 
 def InitializeTrial(engine,description,details='test'):

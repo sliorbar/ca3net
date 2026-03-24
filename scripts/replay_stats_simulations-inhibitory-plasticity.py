@@ -42,7 +42,7 @@ RunType = "org"
 ##############Start  of LB parameters ###############
 org_sim_len = 1000 # First part of the simulation - Can be used to store synaptic weights
 first_break_sim_len = 4000 #First break duration in ms can be used to store synaptic weights
-end_sim_len = 25000 #Duration in ms of entire simulation
+end_sim_len = 10000 #Duration in ms of entire simulation
 #taup_sim = 20 #pre synaptic stdp constant
 #taum_sim = 20 #post synaptic stdp constant
 #stdp_post_scale_factor = -0.1 # Post before pre factor - Positive number is LTD
@@ -197,13 +197,13 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, STDP_mode, cue, save, 
     np.random.seed(seed)
     pyrandom.seed(seed)
     global Selected_PC_Index
-    inh_plasticity_training = True  # If True, inhibitory plasticity is enabled during the training phase
+    inh_plasticity_training = False  # If True, inhibitory plasticity is enabled during the training phase
     inh_plasticity = True
     #max_inhibition_mult = 1.5  # Maximum scaling of inhibitory weights
-    max_inhibition_mult_PC_I = 1.5  # Maximum scaling of inhibitory weights for PC to BC synapses
-    max_inhibition_mult_BC_E = 1.5  # Maximum scaling of inhibitory weights for BC to PC synapses
-    max_inhibition_mult_BC_I = 1.5  # Maximum scaling of inhibitory weights for BC to BC synapses
-    max_excitation_mult_PC_E = 1.5  # Maximum scaling of excitatory weights for PC to PC synapses
+    max_inhibition_mult_PC_I = 2.0  # Maximum scaling of inhibitory weights for PC to BC synapses
+    max_inhibition_mult_BC_E = 2.0  # Maximum scaling of inhibitory weights for BC to PC synapses
+    max_inhibition_mult_BC_I = 2.0  # Maximum scaling of inhibitory weights for BC to BC synapses
+    max_excitation_mult_PC_E = 1.0  # Maximum scaling of excitatory weights for PC to PC synapses
     # synaptic weights (see `/optimization/optimize_network.py`)
     w_PC_I_input = 0.65  # nS
     w_BC_E_input = 0.85  # nS
@@ -516,7 +516,7 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, STDP_mode, cue, save, 
     else:
         net.run(end_sim_len*ms)
     
-    device.build(directory='output', compile=True, run=True, debug=True)
+    device.build(directory='output_offline', compile=True, run=True, debug=True)
     
     if save:
         save_vars(SM_PC, RM_PC, StateM_PC, selection, seed)
