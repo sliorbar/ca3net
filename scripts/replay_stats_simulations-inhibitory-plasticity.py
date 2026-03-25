@@ -212,7 +212,7 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, STDP_mode, cue, save, 
     np.random.seed(seed)
     pyrandom.seed(seed)
     global Selected_PC_Index
-    inh_plasticity_training = True  # If True, inhibitory plasticity is enabled during the training phase
+    inh_plasticity_training = False  # If True, inhibitory plasticity is enabled during the training phase
     inh_plasticity = True
     #max_inhibition_mult = 1.5  # Maximum scaling of inhibitory weights
     max_inhibition_mult_PC_I = 1.5  # Maximum scaling of inhibitory weights for PC to BC synapses
@@ -340,8 +340,8 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, STDP_mode, cue, save, 
         Am_BC_E = 0.0
     # BC_I plasticity parameters (Ap > 0 is hSTDP)
     if inh_plasticity == True:
-        Ap_BC_I = 0.02
-        Am_BC_I = Ap_BC_I #* -1.0 ## This is for symmetric inhibitory plasticity on BC to BC synapses
+        Ap_BC_I = -0.02
+        Am_BC_I = Ap_BC_I * -1.0 ## This is for symmetric inhibitory plasticity on BC to BC synapses
     else:
         Ap_BC_I = 0.0
         Am_BC_I = 0.0

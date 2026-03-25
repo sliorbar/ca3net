@@ -107,5 +107,5 @@ if __name__ == "__main__":
     plot_w_distr(weightmx, save_name="%s_distr" % f_out[:-4])
     selection = np.array([500, 2400, 4000, 5500, 7015])
     plot_weights(save_selected_w(weightmx, selection), save_name="%s_sel_weights" % f_out[:-4])
-    device.delete()
+    #device.delete()
     plt.show()
