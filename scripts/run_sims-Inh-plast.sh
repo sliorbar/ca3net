@@ -24,7 +24,7 @@ for ((i=1; i<=ITERATIONS; i++)); do
 
   "$VENV_PY" "$SPIKES_FILE" 
   "$VENV_PY" "$STDP_FILE" asym sym N 1
-  "$VENV_PY" "$PYTHON_FILE" asym sym "Inh Plast - PC-PC ah PC-BC ah BC-PC ah BC-BC ah $i" alt 5000 "$SYN_Threshold" 1
+  "$VENV_PY" "$PYTHON_FILE" asym sym "Inh Plast - PC-BC ah BC-PC ah BC-BC ah $i" alt 5000 "$SYN_Threshold" 1
   #"$VENV_PY" "$SPIKES_FILE" Y 
   #"$VENV_PY" "$STDP_FILE" asym sym Y 2
   #"$VENV_PY" "$PYTHON_FILE" asym sym "2nd env nConx 100 $i" N 5000 "$SYN_Threshold" 2
