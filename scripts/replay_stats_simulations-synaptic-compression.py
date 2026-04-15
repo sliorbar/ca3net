@@ -27,7 +27,7 @@ import brian2cuda
 import random
 #import brian2genn
 from helper import load_wmx, preprocess_monitors, generate_cue_spikes,\
-                   save_vars, save_PSD, save_TFR, save_LFP, save_replay_analysis,save_wmx,save_vars_syn,SynWeightDist,save_vars_syn_cpp, SynWeightHome, SynWeightHomeUniform
+                   save_vars, save_PSD, save_TFR, save_LFP, save_replay_analysis,save_wmx,save_vars_syn,SynWeightDist,save_vars_syn_cpp, SynWeightHome, SynWeightHomeUniform, _load_PF_starts
 from detect_replay import replay_circular, slice_high_activity, replay_linear
 from detect_oscillations import analyse_rate, ripple_AC, ripple, gamma, calc_TFR, analyse_estimated_LFP
 from plots import plot_violin, plot_raster, plot_posterior_trajectory, plot_PSD, plot_TFR, plot_zoomed, plot_detailed, plot_LFP, set_fig_dir, plot_wmx,set_len_sim,plot_histogram_wmx, plot_Zoom_Weights,fig_dir
@@ -181,7 +181,7 @@ dx_gaba/dt = -x_gaba/decay_BC_I : 1
 
 #def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = None, engine=None, verbose=True, folder=None, expid=None):
 def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc=None, engine=None, verbose=True, folder=None, expid=None,
-                   taup_sim=20, taum_sim=20, stdp_post_scale_factor=-0.1, stdp_pre_scale_factor=-0.1, delay_PC_E=2.2, Learning_Rate=0.01,connection_prob_PC = 0.1, connection_prob_BC = 0.25):
+                   taup_sim=20, taum_sim=20, stdp_post_scale_factor=-0.1, stdp_pre_scale_factor=-0.1, delay_PC_E=2.2, Learning_Rate=0.01,connection_prob_PC = 0.1, connection_prob_BC = 0.25, PF_pklf_name = None):
 
     """
     Sets up the network and runs simulation
@@ -221,12 +221,17 @@ def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc=Non
     C_PC_MF.connect(j="i")
 
     if cue:
-        num_of_neurons = 100
+        cue_block_size = 100
+        pf_Starts = _load_PF_starts(PF_pklf_name)
+        PCdata = pd.DataFrame({'PC_Index': list(pf_Starts.keys())})
+        cue_block = np.arange(cue_start, cue_start + cue_block_size)
+        cue_targets = np.intersect1d(cue_block, PCdata["PC_Index"].to_numpy(dtype=int))
+        num_of_neurons = len(cue_targets)
         spike_times, spiking_neurons = generate_cue_spikes(neurons=num_of_neurons)
-        cue_input = SpikeGeneratorGroup(100, spiking_neurons, spike_times*second)
+        cue_input = SpikeGeneratorGroup(num_of_neurons, spiking_neurons, spike_times*second)
         # connects at the end of PC pop (...end of track in linear case)
         C_PC_cue = Synapses(cue_input, PCs, on_pre="x_ampaMF+=norm_PC_MF*w_PC_MF")
-        C_PC_cue.connect(i=np.arange(0, num_of_neurons), j=np.arange(cue_start, cue_start + 100))
+        C_PC_cue.connect(i=np.arange(0, num_of_neurons), j=cue_targets)
 
     # weight matrix used here
     if STDP_mode == "asym":
@@ -514,7 +519,7 @@ if __name__ == "__main__":
         wmx_PC_E, STDP_mode, cue=cue, save=save, save_slice=save_slice, expdesc=FolderDescription,
         engine=engine, seed=seed, verbose=verbose, folder=dir_name_save, expid=expid,
         taup_sim=taup_sim, taum_sim=taum_sim, stdp_post_scale_factor=stdp_post_scale_factor, 
-        stdp_pre_scale_factor=stdp_pre_scale_factor, delay_PC_E=PC_SynDelay, Learning_Rate=Learning_Rate,connection_prob_PC=connection_prob_PC,connection_prob_BC=connection_prob_BC)
+        stdp_pre_scale_factor=stdp_pre_scale_factor, delay_PC_E=PC_SynDelay, Learning_Rate=Learning_Rate,connection_prob_PC=connection_prob_PC,connection_prob_BC=connection_prob_BC, PF_pklf_name=PF_pklf_name)
     
     output_w = SynWeightHome(weightmx,pr_value=syn_preserve) # Homeostatic synaptic compression with syn_preserve nS preservation threshold
     # Save only three values: threshold, count below threshold, and count at/above threshold
@@ -537,4 +542,3 @@ if __name__ == "__main__":
     plt.show()
 
   
-

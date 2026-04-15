@@ -52,7 +52,7 @@ def swap_spike_train_segments(spike_trains, start_a, start_b, seg_len):
 
 
 
-def generate_spike_train(n_neurons, place_cell_ratio, linear, ordered=True, seed=1234, swap_start_a=None, swap_start_b=None, swap_len=0):
+def generate_spike_train(n_neurons, place_cell_ratio, linear, ordered=True, seed=1234, swap_start_a=None, swap_start_b=None, swap_len=0, PF_pklf_postfix=None):
     assert n_neurons >= 1000, "Assumptions hold only for a reasonably big group of neurons"
     assert 0.0 < place_cell_ratio <= 1.0
 
@@ -95,7 +95,11 @@ def generate_spike_train(n_neurons, place_cell_ratio, linear, ordered=True, seed
 
     if linear:
         phi_starts = phi_starts - 0.1 * np.pi
-        pklf_name = os.path.join(base_path, "files",
+        if PF_pklf_postfix is not None:
+            pklf_name = os.path.join(base_path, "files",
+                                     f"PFstarts_{place_cell_ratio}_linear{'_no' if not ordered else ''}_{PF_pklf_postfix}.pkl")
+        else:
+            pklf_name = os.path.join(base_path, "files",
                                  f"PFstarts_{place_cell_ratio}_linear{'_no' if not ordered else ''}.pkl")
     else:
         pklf_name = os.path.join(base_path, "files",
@@ -128,8 +132,10 @@ def generate_spike_train(n_neurons, place_cell_ratio, linear, ordered=True, seed
 if __name__ == "__main__":
     try:
         SwitchSection = sys.argv[1]
+        PF_pklf_postfix = sys.argv[2] if len(sys.argv) > 2 else None
     except:
         SwitchSection = None
+        PF_pklf_postfix = None
     # --- Parameters
     n_neurons = 8000
     place_cell_ratio = 0.5
@@ -138,10 +144,10 @@ if __name__ == "__main__":
     #f_out = "intermediate_spike_trains_%.1f_linear.npz"%place_cell_ratio if linear else "intermediate_spike_trains_%.1f.npz"%place_cell_ratio; ordered = False
 
     
-    if SwitchSection != None:
-        spike_trains = generate_spike_train(n_neurons, place_cell_ratio, linear=linear, ordered=ordered,swap_start_a=2000, swap_start_b=5000, swap_len=1000)
+    if SwitchSection == "Y":
+        spike_trains = generate_spike_train(n_neurons, place_cell_ratio, linear=linear, ordered=ordered,swap_start_a=2000, swap_start_b=5000, swap_len=1000, PF_pklf_postfix=PF_pklf_postfix)
     else:
-        spike_trains = generate_spike_train(n_neurons, place_cell_ratio, linear=linear, ordered=ordered)
+        spike_trains = generate_spike_train(n_neurons, place_cell_ratio, linear=linear, ordered=ordered, PF_pklf_postfix=PF_pklf_postfix)
     spike_trains = refractoriness(spike_trains)  # clean spike train (based on refractory period)
     spike_trains = np.array(spike_trains, dtype=object)
     npzf_name = os.path.join(base_path, "files", f_out)

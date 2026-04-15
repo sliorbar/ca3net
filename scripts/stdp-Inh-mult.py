@@ -43,15 +43,15 @@ prefs.devices.cpp_standalone.extra_make_args_unix = [
 ]
 #set_device("cuda_standalone", directory='output_online_sim')
 '''
-set_device("cpp_standalone",directory='output_online_sim', debug=True)  # speed up the simulation with generated C++ code
+set_device("cpp_standalone",directory='output_online_sim')  # speed up the simulation with generated C++ code
 
 
 warnings.filterwarnings("ignore")
 base_path = os.path.sep.join(os.path.abspath("__file__").split(os.path.sep)[:-2])
 adapt_mult = 1.0
 nPCs = 8000
-#nBCs = 150
-nBCs = 400
+nBCs = 150
+#nBCs = 600
 plasticity_scale_factor = 0.5  # scaling factor for the STDP window 
 # sparseness
 connection_prob_PC = 0.1
@@ -175,8 +175,8 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin
     #wmax_PC_I = w_PC_I_inp * max_mult # Allow for maximum 1.5x scaling of the weight
     #wmax_BC_E = w_BC_E_inp * max_mult_BC_E # Allow for maximum 1.5x scaling of the weight
     #wmax_BC_I = w_BC_I_inp * max_mult # Allow for maximum 1.5x scaling of the weight
-    wmax_PC_I = 1.2 # Allow for maximum  scaling of the weight
-    wmax_BC_E = 1.8 # Allow for maximum  scaling of the weight
+    wmax_PC_I = 1.8 # Allow for maximum  scaling of the weight
+    wmax_BC_E = 2.4 # Allow for maximum  scaling of the weight
     wmax_BC_I = 10.0 # Allow for maximum scaling of the weight
     w_PC_I_inp = w_PC_I_inp * initial_mult
     w_BC_E_inp = w_BC_E_inp * initial_mult
@@ -191,11 +191,11 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin
     PCs = SpikeGeneratorGroup(nPCs, spiking_neurons, spike_times*second)
     
     # Conx population - Used to provide Context
-    nConx = 100 # Number of context cells
-    rate_Conx = 28.0 * Hz #Conx provides context here. Twice theta frequency, to ensure that they can provide context during the entire simulation, even if they are not perfectly phase-locked to the theta rhythm.
-    
+    nConx = 8 # Number of context cells
+    rate_Conx = 7.0 * Hz #Conx provides context here. at theta frequency, to ensure that they can provide context during the entire simulation, even if they are not perfectly phase-locked to the theta rhythm.
+        
     Conx = PoissonGroup(nConx, rate_Conx)
-    w_Conx_E = 15.0 # Very strong connection - e.g.
+    w_Conx_E = 5.0 # Very strong connection - e.g.
     
     
     
@@ -209,9 +209,9 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin
     # BC_E plasticity parameters (Ap > 0 is hSTDP)
     Ap_BC_E = -step_size 
     Am_BC_E = -Ap_BC_E
-    # BC_I plasticity parameters (Ap > 0 is hSTDP)
-    Ap_BC_I = step_size
-    Am_BC_I = Ap_BC_I
+    # BC_I plasticity parameters 
+    Ap_BC_I =  step_size 
+    Am_BC_I =  Ap_BC_I
     # Scale the plasticity parameters to match the weight range
 
 
@@ -364,7 +364,7 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin
             A_postsyn += Am
             w_exc = clip(w_exc + A_presyn, 0, wmax)
             """)
-    Conx_Syn_PC.connect(p=connection_prob_Conx / nConx)  # Sparse connection from Conx to PCs
+    Conx_Syn_PC.connect(p=connection_prob_Conx)  # Sparse connection from Conx to PCs
     Conx_Syn_PC.w_exc = w_init  # Scale the weight by the number of Conx neurons to keep total inital input constant
     #device.build(directory='output_online_sim', compile=True, run=False, debug=True, clean=True)
     # Increased from 20s to match original stdp.py approach
@@ -428,8 +428,8 @@ if __name__ == "__main__":
     # Original: 1e-10 S = 0.0001 nS, which is 0.5% of 2e-8 S = 20 nS
     # For wmax=7 nS, 0.5% would be 0.035, but start even smaller
     # w_init = 1e-10  # dimensionless (represents 0.00035 nS, ~0.005% of wmax)
-    Ap = Am = 0.01
-    wmax = 5.0 # 
+    Ap = Am = 0.02
+    wmax = 4.0 # 
     w_init = 0.1
     Ap *= wmax; Am *= wmax  # needed to reproduce Brian1 results
 

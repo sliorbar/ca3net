@@ -16,15 +16,15 @@ SPIKES_FILE="$REPO/scripts/generate_spike_train-Omen.py"
 
 # --- Params ---
 ITERATIONS=1
-SYN_Threshold="1.85"
+SYN_Threshold="1.1"
 #"$VENV_PY" "$SPIKES_FILE" 
 #"$VENV_PY" "$STDP_FILE" asym sym N 1
 for ((i=1; i<=ITERATIONS; i++)); do
   echo "Running iteration $i"
 
-  "$VENV_PY" "$SPIKES_FILE" 
-  "$VENV_PY" "$STDP_FILE" asym sym N 1
-  "$VENV_PY" "$PYTHON_FILE" asym sym "Syn Comp Inh plast no inh no progression$i" alt 5000 "$SYN_Threshold" 1
+  #"$VENV_PY" "$SPIKES_FILE" 
+  #"$VENV_PY" "$STDP_FILE" asym sym N 1
+  "$VENV_PY" "$PYTHON_FILE" asym sym "Syn Comp focus cue$i" alt 5000 "$SYN_Threshold" 1
   #"$VENV_PY" "$SPIKES_FILE" Y 
   #"$VENV_PY" "$STDP_FILE" asym sym Y 2
   #"$VENV_PY" "$PYTHON_FILE" asym sym "2nd env nConx 100 $i" N 5000 "$SYN_Threshold" 2
