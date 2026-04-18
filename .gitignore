@@ -13,7 +13,7 @@ files/*pkl
 files/*npz
 files/results/
 scripts/output/
-scripts/output_replay/
+scripts/output_offline_sim/
 scripts/var/
 scripts/optimization/Mishra_2016/
 scripts/optimization/checkpoints/

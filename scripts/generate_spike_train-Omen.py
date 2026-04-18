@@ -71,6 +71,7 @@ def generate_spike_train(n_neurons, place_cell_ratio, linear, ordered=True, seed
             tmp * np.ones(n_neurons - 200),
             2 * p_uniform * np.ones(100),
         ])
+        p= (1.0 / n_neurons) * np.ones(n_neurons)  # Uniform sampling (comment out to use oversampling of ends)
         place_cells = np.sort(
             rng.choice(neuronIDs, int(n_neurons * place_cell_ratio), replace=False, p=p),
             kind="mergesort"
@@ -145,7 +146,7 @@ if __name__ == "__main__":
 
     
     if SwitchSection == "Y":
-        spike_trains = generate_spike_train(n_neurons, place_cell_ratio, linear=linear, ordered=ordered,swap_start_a=2000, swap_start_b=5000, swap_len=1000, PF_pklf_postfix=PF_pklf_postfix)
+        spike_trains = generate_spike_train(n_neurons, place_cell_ratio, linear=linear, ordered=ordered,swap_start_a=1500, swap_start_b=4500, swap_len=1000, PF_pklf_postfix=PF_pklf_postfix)
     else:
         spike_trains = generate_spike_train(n_neurons, place_cell_ratio, linear=linear, ordered=ordered, PF_pklf_postfix=PF_pklf_postfix)
     spike_trains = refractoriness(spike_trains)  # clean spike train (based on refractory period)

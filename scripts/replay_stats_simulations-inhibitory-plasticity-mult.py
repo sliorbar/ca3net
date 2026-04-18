@@ -69,7 +69,7 @@ Cue_Param = False #True or false for cue
 #Learning_Rate = 0.01 # Learning rate for STDP (Height of STDP Curve)
 synaptic_zoom = 20 # The number of presynaptic connection to log on the zoom PC
 adapt_mult = 1 #Adaptation multiplier used for regulating the amount of times PCs spike during replay
-cue_start = 4500 #Cue start time in ms
+cue_start = 1000 #Cue start location PC index (used only if Cue_Param is True)
 #trials = 2 #Number of trials to run
 #org_run=0 #Run the original simulation
 #place_cell_ratio = 0.3 #Ratio of place cells to non place cells
@@ -77,9 +77,10 @@ cue_start = 4500 #Cue start time in ms
 
 ##############End of LB parameters ##############
 # population size
+BC_mult = 1.0 # Multiplier for the number of BCs - Used to test the effect of increasing the number of BCs in the network
 nPCs = 8000
-nBCs = 150
-#nBCs = 600
+#nBCs = 150
+nBCs = 150 
 # sparseness
 #connection_prob_PC = 0.1
 #connection_prob_BC = 0.25
@@ -243,11 +244,18 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_Conx_PC, STDP_mode
 
     MF = PoissonGroup(nPCs, rate_MF)
     C_PC_MF = Synapses(MF, PCs, on_pre="x_ampaMF+=norm_PC_MF*w_PC_MF")
-    C_PC_MF.connect(j="i")
     
+    #pf_Starts = _load_PF_starts(PF_pklf_name)
+    #PCdata = pd.DataFrame({'PC_Index': list(pf_Starts.keys())})
+    #MF_block = np.arange(0, nPCs)
+    #MF_targets = np.intersect1d(MF_block, PCdata["PC_Index"].to_numpy(dtype=int))
+    #num_of_MF_eurons = len(MF_targets)
+    #C_PC_MF.connect(i=np.arange(0, num_of_MF_eurons), j=MF_targets)
+    C_PC_MF.connect(j="i")
+
     # Conx population - Used to provide Context
-    nConx = 8 # Number of context cells
-    rate_Conx = 7.0 * Hz #Conx provides context here. 
+    nConx = 1 # Number of context cells
+    rate_Conx = 0.0001 * Hz #Conx provides context here. 
     
     Conx = PoissonGroup(nConx, rate_Conx)
     w_Conx_E = 5.0 # Connection weight for context to BC synapses
@@ -374,7 +382,7 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_Conx_PC, STDP_mode
     Ap_BC_I = wmax_BC_I * Ap_BC_I 
     Am_BC_I = wmax_BC_I * Am_BC_I 
     synapse_details = synapse_details + ', Ap_BC_I=' + '{0:.3f}'.format(Ap_BC_I) + ', Am_BC_I=' + '{0:.3f}'.format(Am_BC_I) + ', Ap_PC_I=' + '{0:.3f}'.format(Ap_PC_I) + ', Am_PC_I=' + '{0:.3f}'.format(Am_PC_I) + ', Ap_BC_E=' + '{0:.3f}'.format(Ap_BC_E) + ', Am_BC_E=' + '{0:.3f}'.format(Am_BC_E)
-    synapse_details = synapse_details + ', Tau_BC_I=' + '{0:.3f}'.format(tau_BC_I) + ', Tau_BC_E=' + '{0:.3f}'.format(tau_BC_E) + ', Tau_PC_I=' + '{0:.3f}'.format(tau_PC_I) + ', wmax_PC_I=' + '{0:.3f}'.format(wmax_PC_I) + ', wmax_BC_E=' + '{0:.3f}'.format(wmax_BC_E) + ', wmax_BC_I=' + '{0:.3f}'.format(wmax_BC_I) + ', inh_plasticity=' + str(inh_plasticity) + ', wmax=' + '{0:.2f}'.format(wmax)
+    synapse_details = synapse_details + ', Tau_BC_I=' + '{0:.3f}'.format(tau_BC_I) + ', Tau_BC_E=' + '{0:.3f}'.format(tau_BC_E) + ', Tau_PC_I=' + '{0:.3f}'.format(tau_PC_I) + ', wmax_PC_I=' + '{0:.3f}'.format(wmax_PC_I) + ', wmax_BC_E=' + '{0:.3f}'.format(wmax_BC_E) + ', wmax_BC_I=' + '{0:.3f}'.format(wmax_BC_I) + ', inh_plasticity=' + str(inh_plasticity) + ', wmax=' + '{0:.2f}'.format(wmax) + ', synaptic_preserve=' + '{0:.2f}'.format(syn_preserve)
     print(synapse_details)
     #dApresyn = Ap
     #dApostsyn = Am
@@ -665,7 +673,7 @@ if __name__ == "__main__":
     stdp_pre_scale_factor_range = (-0.2,-0.15)  # Example range for stdp_pre_scale_factor 
     stdp_post_scale_factor_range = (0.1, 0.2)  # Example range for stdp_post_scale_factor
     PC_SynDelay_range = (2.2, 2.3)  # Example range for PC_SynDelay
-    Learning_Rate_range = (0.02, 0.02)  # Example range for Learning_Rate
+    Learning_Rate_range = (0.01, 0.02)  # Example range for Learning_Rate
     place_cell_ratio_range = (0.3, 0.3)  # Example range for place_cell_ratio
     connection_prob_PC_range = (0.1,0.1)
     connection_prob_BC_range = (0.25,0.25)
@@ -673,7 +681,7 @@ if __name__ == "__main__":
     tau_inh_range = (15, 20) # Range for inhibitory plasticity time constant in ms
     stdp_inh_scale_factor_range = (0.01, 0.02) # Range for inhibitory plasticity scale factor (Ap and Am will be calculated based on this and the max weight)
     inh_max_weight_range = (1.5, 2.0) # Range multiplier for maximum weight for inhibitory synapses in nS
-    wmax_range = (3.8, 4.2) # Range for maximum weight for excitatory synapses in nS
+    wmax_range = (3.5, 4.0) # Range for maximum weight for excitatory synapses in nS
     # Initialize SQL engine
     engine = datalayerOmen.InitializeSQLEngine()
 
@@ -693,14 +701,14 @@ if __name__ == "__main__":
     tau_inh = random.uniform(*tau_inh_range)
     stdp_inh_scale_factor = random.uniform(*stdp_inh_scale_factor_range)
     inh_max_weight = random.uniform(*inh_max_weight_range)
-    wmax = random.uniform(*wmax_range)
+    wmax = random.uniform(*wmax_range) 
     #syn_preserve = random.uniform(*syn_preserve_range)
     #place_cell_ratio = random.uniform(*place_cell_ratio_range)
     #connection_prob_PC = random.uniform(*connection_prob_PC_range)
     #connection_prob_BC = random.uniform(*connection_prob_BC_range)
     connection_prob_PC = 0.1
-    connection_prob_BC = 0.25
-    connection_prob_BC_E = 0.1
+    connection_prob_BC = 0.25 
+    connection_prob_BC_E = 0.1 
     place_cell_ratio = 0.5
     
     # Update folder description for each combination
@@ -736,6 +744,7 @@ if __name__ == "__main__":
     wmx_BC_I = load_wmx(os.path.join(base_path, "files", f_in_BC_I)) #Weight matrix for BC_I
     wmx_Conx_PC = load_wmx(os.path.join(base_path, "files", f_in_Conx_PC)) #Weight matrix for Conx to PC synapses
     #wmx_PC_E = remap_weight_matrix_blocks(wmx_PC_E)  # Remap the weight matrix blocks if needed
+    wmax = np.max(wmx_PC_E)
     # Run simulation with the randomly selected parameters
     #SM_PC, SM_BC, RM_PC, RM_BC, selection, StateM_PC, StateM_BC, weightmx = run_simulation(
     #    wmx_PC_E=wmx_PC_E, wmx_PC_I=wmx_PC_I, wmx_BC_E=wmx_BC_E, wmx_BC_I=wmx_BC_I, STDP_mode=STDP_mode, cue=cue, save=save, save_slice=save_slice, expdesc=FolderDescription,

@@ -13,7 +13,8 @@ from brian2 import *
 from brian2.units.allunits import *
 from brian2.units.stdunits import *
 import matplotlib.pyplot as plt
-import brian2cuda
+#import brian2cuda
+import random 
 from helper import load_spike_trains, save_wmx, load_wmx, SynWeightHome, SynWeightHomeUniform
 from plots import plot_STDP_rule, plot_wmx, plot_wmx_avg, plot_w_distr, save_selected_w, plot_weights
 
@@ -49,14 +50,16 @@ set_device("cpp_standalone",directory='output_online_sim')  # speed up the simul
 warnings.filterwarnings("ignore")
 base_path = os.path.sep.join(os.path.abspath("__file__").split(os.path.sep)[:-2])
 adapt_mult = 1.0
+
 nPCs = 8000
-nBCs = 150
-#nBCs = 600
+#nBCs = 150 
+nBCs = 150 
 plasticity_scale_factor = 0.5  # scaling factor for the STDP window 
 # sparseness
 connection_prob_PC = 0.1
-connection_prob_BC_E = 0.1
-connection_prob_BC = 0.25
+connection_prob_PC_I = 0.1  # Scale the connection probability for PC to BC synapses by the number of BCs, to keep the total amount of inhibition received by each BC approximately constant when increasing the number of BCs
+connection_prob_BC_E = 0.1   # Scale the connection probability for BC to PC synapses by the number of BCs, to keep the total amount of inhibition received by each PC approximately constant when increasing the number of BCs
+connection_prob_BC = 0.25   # Scale the connection probability for BC to BC synapses by the number of BCs, to keep the total amount of inhibition received by each BC approximately constant when increasing the number of BCs
 connection_prob_Conx = 0.05
 rise_PC_E = 1.3 * ms  # Guzman 2016 (only from Fig.1 H - 20-80%)
 rise_PC_MF = 0.65 * ms  # Vyleta ... Jonas 2016 (20-80%)
@@ -165,7 +168,7 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin
     max_mult_BC_E = 3.0  # Allow for maximum 1.5x scaling of the Ph2 weight
     initial_mult = 1.0  # Initial scaling of the weight - 50%
     step_size = 0.01
-    inh_tau = 40 * ms
+    inh_tau = 20 * ms
     w_PC_I_inp = 0.65 #* 1e-9 # nS # Taken from Ecker 2022
     w_BC_E_inp = 0.85 #* 1e-9 # nS # Taken from Ecker 2022
     w_BC_I_inp = 5.0 #* 1e-9 # nS # Taken from Ecker 2022
@@ -175,9 +178,9 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin
     #wmax_PC_I = w_PC_I_inp * max_mult # Allow for maximum 1.5x scaling of the weight
     #wmax_BC_E = w_BC_E_inp * max_mult_BC_E # Allow for maximum 1.5x scaling of the weight
     #wmax_BC_I = w_BC_I_inp * max_mult # Allow for maximum 1.5x scaling of the weight
-    wmax_PC_I = 1.8 # Allow for maximum  scaling of the weight
-    wmax_BC_E = 2.4 # Allow for maximum  scaling of the weight
-    wmax_BC_I = 10.0 # Allow for maximum scaling of the weight
+    wmax_PC_I = 1.2 # Allow for maximum  scaling of the weight
+    wmax_BC_E = 1.8 # Allow for maximum  scaling of the weight
+    wmax_BC_I = 7.5 # Allow for maximum scaling of the weight
     w_PC_I_inp = w_PC_I_inp * initial_mult
     w_BC_E_inp = w_BC_E_inp * initial_mult
     w_BC_I_inp = w_BC_I_inp * initial_mult
@@ -191,8 +194,8 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin
     PCs = SpikeGeneratorGroup(nPCs, spiking_neurons, spike_times*second)
     
     # Conx population - Used to provide Context
-    nConx = 8 # Number of context cells
-    rate_Conx = 7.0 * Hz #Conx provides context here. at theta frequency, to ensure that they can provide context during the entire simulation, even if they are not perfectly phase-locked to the theta rhythm.
+    nConx = 1 # Number of context cells
+    rate_Conx = 0.0001 * Hz #Conx provides context here. at theta frequency, to ensure that they can provide context during the entire simulation, even if they are not perfectly phase-locked to the theta rhythm.
         
     Conx = PoissonGroup(nConx, rate_Conx)
     w_Conx_E = 5.0 # Very strong connection - e.g.
@@ -283,6 +286,7 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin
         wmx_BC_E = load_wmx(fin[:-4] + "_BC_E.npz")
         wmx_BC_I = load_wmx(fin[:-4] + "_BC_I.npz")
         wmx_PC_E = load_wmx(fin)
+        wmax = np.amax(wmx_PC_E.data)   # Set wmax based on the maximum weight in the loaded matrix, allowing for some growth during learning
         #wmx_PC_E.data = SynWeightHome(wmx_PC_E.data, pr_value=wmax*0.8 , top_value=1.0, reset_value=w_init)  # Extract data and apply hoemostasis - Reset the weights to w_init if they are above wmax*0.8, to prevent too high initial weights when loading from file
         #wmx_PC_E.data =  wmx_PC_E.data / scale_factor  # Reverse scaling to get back the original weights
     
@@ -429,7 +433,9 @@ if __name__ == "__main__":
     # For wmax=7 nS, 0.5% would be 0.035, but start even smaller
     # w_init = 1e-10  # dimensionless (represents 0.00035 nS, ~0.005% of wmax)
     Ap = Am = 0.02
-    wmax = 4.0 # 
+    wmax_range = (3.75, 4.0)
+    #wmax = 4.0 # 
+    wmax = random.uniform(*wmax_range)
     w_init = 0.1
     Ap *= wmax; Am *= wmax  # needed to reproduce Brian1 results
 
