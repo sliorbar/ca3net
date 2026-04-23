@@ -198,7 +198,7 @@ dx_gaba/dt = -x_gaba/decay_BC_I : 1
 
 #def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = None, engine=None, verbose=True, folder=None, expid=None):
 def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_Conx_PC, STDP_mode, cue, save, save_slice, seed, expdesc=None, engine=None, verbose=True, folder=None, expid=None,
-                   taup_sim=20, taum_sim=20, stdp_post_scale_factor=-0.1, stdp_pre_scale_factor=-0.1, delay_PC_E=2.2, Learning_Rate=0.01,connection_prob_PC = 0.1, connection_prob_BC = 0.25, place_cell_ratio=0.5, select_Conx = 1, connection_prob_BC_E=0.25, STDP_mode_Input = "sym", syn_preserve = 1.0, PF_pklf_name = None, tau_inh = 20, stdp_inh_scale_factor = 0.1, inh_max_weight = 2.0, end_duration_length = 10000, wmax = 4.0):
+                   taup_sim=20, taum_sim=20, stdp_post_scale_factor=-0.1, stdp_pre_scale_factor=-0.1, delay_PC_E=2.2, Learning_Rate=0.01,connection_prob_PC = 0.1, connection_prob_BC = 0.25, place_cell_ratio=0.5, select_Conx = 1, connection_prob_BC_E=0.25, STDP_mode_Input = "sym", syn_preserve = 1.0, PF_pklf_name = None, tau_inh = 20, stdp_inh_scale_factor = 0.1, inh_max_weight = 2.0, end_duration_length = 10000, wmax = 4.0, do_not_save = "N"):
 
     """
     Sets up the network and runs simulation
@@ -259,13 +259,23 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_Conx_PC, STDP_mode
     
     Conx = PoissonGroup(nConx, rate_Conx)
     w_Conx_E = 5.0 # Connection weight for context to BC synapses
-
+    # Save the place cells in the database
+    pf_Starts = _load_PF_starts(PF_pklf_name)
+    PCdata = pd.DataFrame({
+        'PC_Index': list(pf_Starts.keys()),
+        'PF_Start': list(pf_Starts.values()),
+    })
+    PCdata = PCdata.sort_values('PF_Start', kind='mergesort').reset_index(drop=True)
+    PCdata['PC_Order'] = PCdata.index.astype(int)
+    PCdata_for_save = PCdata[['PC_Index', 'PC_Order']].copy()
+    datalayerOmen.SaveTrial(engine=engine, expid=expid, data=PCdata_for_save, tablename="place_field_selected")
     if cue:
-        cue_block_size = 200
-        pf_Starts = _load_PF_starts(PF_pklf_name)
-        PCdata = pd.DataFrame({'PC_Index': list(pf_Starts.keys())})
+        cue_block_size = 100
         cue_block = np.arange(cue_start, cue_start + cue_block_size)
-        cue_targets = np.intersect1d(cue_block, PCdata["PC_Index"].to_numpy(dtype=int))
+        cue_orders = np.intersect1d(cue_block, PCdata_for_save["PC_Order"].to_numpy(dtype=int))
+        cue_targets = PCdata_for_save.loc[
+            PCdata_for_save["PC_Order"].isin(cue_orders), "PC_Index"
+        ].to_numpy(dtype=int)
         num_of_neurons = len(cue_targets)
         spike_times, spiking_neurons = generate_cue_spikes(neurons=num_of_neurons)
         cue_input = SpikeGeneratorGroup(num_of_neurons, spiking_neurons, spike_times*second)
@@ -317,6 +327,8 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_Conx_PC, STDP_mode
     PCs_Weights_A = np.zeros((nPCs, nPCs))
     PCs_Weights_B = np.zeros((nPCs, nPCs))
     PCs_Weights_Diff = np.zeros((nPCs, nPCs))
+    total_sim_len= org_sim_len + first_break_sim_len + end_duration_length
+    exp_description = 'Total duration= ' +str(total_sim_len) +  ', cue = ' +str(Cue_Param)
     synapse_details= exp_description + ', synaptic delay = {0:.2f}'.format(delay_PC_E)+ ', Am=' + '{0:.3f}'.format(Am) + ', Ap=' + '{0:.3f}'.format(Ap) + ', taup=' + '{0:.3f}'.format(taup) + ', taum=' + '{0:.3f}'.format(taum) + ', learning_rate=' + '{0:.3f}'.format(Learning_Rate) + ', adaptation mult={0:.2f}'.format(adapt_mult) + ', cue start=' + str(cue_start) + ' , STDP mode=' + STDP_mode + ', connection_prob_PC=' + '{0:.2f}'.format(connection_prob_PC) + ', connection_prob_BC=' + '{0:.2f}'.format(connection_prob_BC)
     
 
@@ -382,7 +394,7 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_Conx_PC, STDP_mode
     Ap_BC_I = wmax_BC_I * Ap_BC_I 
     Am_BC_I = wmax_BC_I * Am_BC_I 
     synapse_details = synapse_details + ', Ap_BC_I=' + '{0:.3f}'.format(Ap_BC_I) + ', Am_BC_I=' + '{0:.3f}'.format(Am_BC_I) + ', Ap_PC_I=' + '{0:.3f}'.format(Ap_PC_I) + ', Am_PC_I=' + '{0:.3f}'.format(Am_PC_I) + ', Ap_BC_E=' + '{0:.3f}'.format(Ap_BC_E) + ', Am_BC_E=' + '{0:.3f}'.format(Am_BC_E)
-    synapse_details = synapse_details + ', Tau_BC_I=' + '{0:.3f}'.format(tau_BC_I) + ', Tau_BC_E=' + '{0:.3f}'.format(tau_BC_E) + ', Tau_PC_I=' + '{0:.3f}'.format(tau_PC_I) + ', wmax_PC_I=' + '{0:.3f}'.format(wmax_PC_I) + ', wmax_BC_E=' + '{0:.3f}'.format(wmax_BC_E) + ', wmax_BC_I=' + '{0:.3f}'.format(wmax_BC_I) + ', inh_plasticity=' + str(inh_plasticity) + ', wmax=' + '{0:.2f}'.format(wmax) + ', synaptic_preserve=' + '{0:.2f}'.format(syn_preserve)
+    synapse_details = synapse_details + ', Tau_BC_I=' + '{0:.3f}'.format(tau_BC_I) + ', Tau_BC_E=' + '{0:.3f}'.format(tau_BC_E) + ', Tau_PC_I=' + '{0:.3f}'.format(tau_PC_I) + ', wmax_PC_I=' + '{0:.3f}'.format(wmax_PC_I) + ', wmax_BC_E=' + '{0:.3f}'.format(wmax_BC_E) + ', wmax_BC_I=' + '{0:.3f}'.format(wmax_BC_I) + ', inh_plasticity=' + str(inh_plasticity) + ', wmax=' + '{0:.2f}'.format(wmax) + ', synaptic_preserve=' + '{0:.2f}'.format(syn_preserve) + ', end_duration=' + str(end_duration_length)
     print(synapse_details)
     #dApresyn = Ap
     #dApostsyn = Am
@@ -563,10 +575,8 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_Conx_PC, STDP_mode
         #save_vars(SM_PC, RM_PC, StateM_PC, selection, seed)
         save_vars(SM_PC, RM_PC,  selection, seed)
     if save_slice :
-        save_vars_syn_cpp(StateM=C_PC_E_StateM, folder=fig_dir, SpikeM=SM_PC,SpikeM_BC = SM_BC, selected_pc=detailed_selection, subset = subset_df ,RateM=RM_PC, RateM_BC = RM_BC,engine=engine,expid=expid,offset=0,runType="alt",synapses=C_PC_E_STDP)
-        pf_Starts = _load_PF_starts(PF_pklf_name)
-        PCdata = pd.DataFrame({'PC_Index': list(pf_Starts.keys())})
-        datalayerOmen.SaveTrial(engine=engine, expid=expid, data=PCdata, tablename="place_field_selected")
+        save_vars_syn_cpp(StateM=C_PC_E_StateM, folder=fig_dir, SpikeM=SM_PC,SpikeM_BC = SM_BC, selected_pc=detailed_selection, subset = subset_df ,RateM=RM_PC, RateM_BC = RM_BC,engine=engine,expid=expid,offset=0,runType="alt",synapses=C_PC_E_STDP, do_not_save=do_not_save)
+        
     datalayerOmen.CloseTrial(engine=engine,expid=expid)
     # For iteration with the matrix - Save the synaptic weights
     f_out = "wmx_after_run_%s_%.1f_linear-itr2.npz" % (STDP_mode, place_cell_ratio) if linear else "wmx_after_run_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)
@@ -643,8 +653,9 @@ if __name__ == "__main__":
         syn_preserve = float(sys.argv[6])
         select_Conx = int(sys.argv[7])
         PF_pklf_name_postfix = sys.argv[8]
-        end_duration_length = int(sys.argv[9])
-        save_PC_weights = sys.argv[10]
+        end_duration_length = int(sys.argv[9]) if len(sys.argv) > 9 else 10000
+        save_PC_weights = sys.argv[10] if len(sys.argv) > 10 else None
+        do_not_save = sys.argv[11] if len(sys.argv) > 11 else "N"
     except:
         STDP_mode = "sym"
         select_Conx = 1
@@ -652,6 +663,7 @@ if __name__ == "__main__":
         PF_pklf_name_postfix = None
         end_duration_length = 10000
         save_PC_weights = None
+        do_not_save = "N"
     assert STDP_mode in ["sym", "asym"]
     assert CueT in ["N", "Y"]
     #RunType = RunT
@@ -668,10 +680,10 @@ if __name__ == "__main__":
     seed = 12345
 
     # Set ranges for each parameter
-    taup_sim_range = (10, 15)  # Example range for taup_sim
+    taup_sim_range = (0.0, 0.01)  # Example range for taup_sim
     taum_sim_range = (15, 20)  # Example range for taum_sim
-    stdp_pre_scale_factor_range = (-0.2,-0.15)  # Example range for stdp_pre_scale_factor 
-    stdp_post_scale_factor_range = (0.1, 0.2)  # Example range for stdp_post_scale_factor
+    stdp_pre_scale_factor_range = (0.0, 0.0)  # Example range for stdp_pre_scale_factor
+    stdp_post_scale_factor_range = (0.01, 0.02)  # Example range for stdp_post_scale_factor
     PC_SynDelay_range = (2.2, 2.3)  # Example range for PC_SynDelay
     Learning_Rate_range = (0.01, 0.02)  # Example range for Learning_Rate
     place_cell_ratio_range = (0.3, 0.3)  # Example range for place_cell_ratio
@@ -738,7 +750,7 @@ if __name__ == "__main__":
     
     # Load weight matrix
     wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in)) #Weight matrix for PC_E
-    #wmx_PC_E.data = SynWeightHome(wmx_PC_E.data,pr_value=syn_preserve) # Reset low weights below threshold
+    wmx_PC_E.data = SynWeightHome(wmx_PC_E.data,pr_value=syn_preserve) # Reset low weights below threshold
     wmx_PC_I = load_wmx(os.path.join(base_path, "files", f_in_PC_I)) #Weight matrix for PC_I
     wmx_BC_E = load_wmx(os.path.join(base_path, "files", f_in_BC_E)) #Weight matrix for BC_E
     wmx_BC_I = load_wmx(os.path.join(base_path, "files", f_in_BC_I)) #Weight matrix for BC_I
@@ -756,7 +768,7 @@ if __name__ == "__main__":
         wmx_PC_E=wmx_PC_E, wmx_PC_I=wmx_PC_I, wmx_BC_E=wmx_BC_E, wmx_BC_I=wmx_BC_I, wmx_Conx_PC=wmx_Conx_PC, STDP_mode=STDP_mode, cue=cue, save=save, save_slice=save_slice, expdesc=FolderDescription,
         engine=engine, seed=seed, verbose=verbose, folder=dir_name_save, expid=expid, PF_pklf_name = PF_pklf_name,
         taup_sim=taup_sim, taum_sim=taum_sim, stdp_post_scale_factor=stdp_post_scale_factor, 
-        stdp_pre_scale_factor=stdp_pre_scale_factor, delay_PC_E=PC_SynDelay, Learning_Rate=Learning_Rate,connection_prob_PC=connection_prob_PC,connection_prob_BC=connection_prob_BC, STDP_mode_Input = STDP_mode_Input, connection_prob_BC_E = connection_prob_BC_E, select_Conx=select_Conx, syn_preserve=syn_preserve, inh_max_weight = inh_max_weight, tau_inh = tau_inh, stdp_inh_scale_factor = stdp_inh_scale_factor, end_duration_length=end_duration_length, wmax=wmax)
+        stdp_pre_scale_factor=stdp_pre_scale_factor, delay_PC_E=PC_SynDelay, Learning_Rate=Learning_Rate,connection_prob_PC=connection_prob_PC,connection_prob_BC=connection_prob_BC, STDP_mode_Input = STDP_mode_Input, connection_prob_BC_E = connection_prob_BC_E, select_Conx=select_Conx, syn_preserve=syn_preserve, inh_max_weight = inh_max_weight, tau_inh = tau_inh, stdp_inh_scale_factor = stdp_inh_scale_factor, end_duration_length=end_duration_length, wmax=wmax, do_not_save=do_not_save)
     
     output_w = SynWeightHome(weightmx,syn_preserve) 
     flattened_weights = output_w.flatten()
@@ -768,6 +780,16 @@ if __name__ == "__main__":
     print("Synaptic weight summary after homeostatic compression:")
     print(weight_counts)
     datalayerOmen.SaveTrial(engine=engine, expid=expid,tablename="synaptic_weights_bins",data=[weight_counts.to_dict()])
+    nonzero_weights = flattened_weights[flattened_weights > 0]
+    bin_size = 0.5
+    max_w = float(np.ceil(nonzero_weights.max() / bin_size) * bin_size) if len(nonzero_weights) > 0 else bin_size
+    bin_edges = np.arange(0.0, max_w + bin_size, bin_size)
+    counts, _ = np.histogram(nonzero_weights, bins=bin_edges)
+    weight_bin_rows = [
+        {"bin_low": float(bin_edges[i]), "bin_high": float(bin_edges[i + 1]), "count": int(counts[i])}
+        for i in range(len(counts))
+    ]
+    datalayerOmen.SaveTrial(engine=engine, expid=expid, tablename="synaptic_weights_histogram", data=weight_bin_rows)
     if save_PC_weights == "Y":
         save_wmx(weightmx, os.path.join(base_path, "files", f_in))
     
@@ -776,4 +798,3 @@ if __name__ == "__main__":
     #plt.show()
 
   
-

@@ -304,7 +304,7 @@ def save_vars_syn(SpikeM, StateM, RateM, subset, selected_pc, folder, f_name="sy
     with open(pklf_name, "wb") as f:
         pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-def save_vars_syn_cpp(SpikeM, StateM, RateM, subset, selected_pc, folder, f_name="syn_vars_PC", offset=0, engine=None,expid=None,runType=None,synapses=None, SpikeM_BC = None, RateM_BC = None):
+def save_vars_syn_cpp(SpikeM, StateM, RateM, subset, selected_pc, folder, f_name="syn_vars_PC", offset=0, engine=None,expid=None,runType=None,synapses=None, SpikeM_BC = None, RateM_BC = None, do_not_save = "N"):
     """
     Saves PC pop spikes, firing rate, membrane voltage, adaptation current and PSCs
     from a couple of recorded neurons after the simulation
@@ -341,10 +341,10 @@ def save_vars_syn_cpp(SpikeM, StateM, RateM, subset, selected_pc, folder, f_name
     BC_spikedata['Previous_Spike_Time'] = BC_spikedata.groupby('BC')['t'].shift(1)
 
 
-
-    datalayerOmen.SaveTrial(engine=engine,data=BC_spikedata,tablename='BCs',expid=expid)
-    datalayerOmen.SaveTrial(engine=engine,data=spikedata,tablename='SpikeData',expid=expid)
-    datalayerOmen.SaveTrial(engine=engine,data=wexc_s,tablename='wexc_s',expid=expid,selected_pc=selected_pc,unpivot=True, offset=offset,dfIndex=dfIndex)
+    if do_not_save != "Y":
+        datalayerOmen.SaveTrial(engine=engine,data=BC_spikedata,tablename='BCs',expid=expid)
+        datalayerOmen.SaveTrial(engine=engine,data=spikedata,tablename='SpikeData',expid=expid)
+        datalayerOmen.SaveTrial(engine=engine,data=wexc_s,tablename='wexc_s',expid=expid,selected_pc=selected_pc,unpivot=True, offset=offset,dfIndex=dfIndex)
     results = {"spike_times": spike_times, "spiking_neurons": spiking_neurons, "rate": rate,
                "ws": ws, "PSCs": PSCs, "wexc_s": wexc_s}
     if os.path.isdir(folder) == False:

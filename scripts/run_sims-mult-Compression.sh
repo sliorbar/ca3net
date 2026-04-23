@@ -12,9 +12,10 @@ STDP_FILE="$REPO/scripts/stdp-Inh-mult.py"
 #STDP_FILE="$REPO/scripts/stdp-Inh.py"
 #STDP_FILE="$REPO/scripts/stdp.py"
 SPIKES_FILE="$REPO/scripts/generate_spike_train-Omen.py"
+#SPIKES_FILE="$REPO/scripts/generate_spike_train-random.py"
 
 # --- Params ---
-ITERATIONS=5
+ITERATIONS=9
 SYN_Threshold="0.1" # Initial synaptic threshold for compression (will be incremented in each iteration)
 
 for ((i=1; i<=ITERATIONS; i++)); do
@@ -22,19 +23,35 @@ for ((i=1; i<=ITERATIONS; i++)); do
 
   "$VENV_PY" "$SPIKES_FILE" N A
   "$VENV_PY" "$STDP_FILE" asym sym N 1
-  #"$VENV_PY" "$PYTHON_FILE" asym sym "2.5 hom PC plast 2 env 1 $i" N 5000 "$SYN_Threshold" 1 A 20000 Y
-  "$VENV_PY" "$SPIKES_FILE" Y B
-  "$VENV_PY" "$STDP_FILE" asym sym Y 2
-  "$VENV_PY" "$PYTHON_FILE" asym sym "PC plast 2 env No Hom $i" N 5000 "$SYN_Threshold" 2 B 10000 Y
-  #"$VENV_PY" "$PYTHON_FILE" asym sym "2.5 hom PC plast 2 env 1 $i" Y 5000 "$SYN_Threshold" 1 A 1000 N
-  #"$VENV_PY" "$PYTHON_FILE" asym sym "2.5 hom PC plast 2 env 2 $i" Y 5000 "$SYN_Threshold" 2 B 1000 N
-  #"$VENV_PY" "$PYTHON_FILE" asym sym "2.0 BC PC-inh-contx plast only replay $i" Y 5000 "$SYN_Threshold" 1 A 1000 N
-  #"$VENV_PY" "$PYTHON_FILE" asym sym "2.25 BC PC-inh-contx plast only replay $i" Y 5000 "$SYN_Threshold" 1 A 1000 N
-  #"$VENV_PY" "$PYTHON_FILE" asym sym "2.5 BC PC-inh-contx plast only replay $i" Y 5000 "$SYN_Threshold" 1 A 1000 N
-  #"$VENV_PY" "$PYTHON_FILE" asym sym "2.75 PC plast only replay $i" Y 5000 "$SYN_Threshold" 1 A 1000 N
-  #"$VENV_PY" "$PYTHON_FILE" asym sym "3.0 PC plast only replay $i" Y 5000 3.0 1 A 1000 N
-  #"$VENV_PY" "$PYTHON_FILE" asym sym "3.25 PC plast only replay $i" Y 5000 3.25 1 A 1000 N
-  #"$VENV_PY" "$PYTHON_FILE" asym sym "3.5 PC plast only replay $i" Y 5000 3.5 1 A 1000 N
+  #"$VENV_PY" "$PYTHON_FILE" asym sym "3.25 Hom PC plast 2 env 1 $i" N 5000 "$SYN_Threshold" 1 A 20000 Y Y
+  "$VENV_PY" "$SPIKES_FILE" R B
+  "$VENV_PY" "$STDP_FILE" asym sym Y 1
+  #"$VENV_PY" "$PYTHON_FILE" asym sym "3.25 Hom PC plast 2 env random order $i" N 5000 "$SYN_Threshold" 2 B 20000 Y Y
+  "$VENV_PY" "$SPIKES_FILE" R C
+  "$VENV_PY" "$STDP_FILE" asym sym Y 1
+  #"$VENV_PY" "$PYTHON_FILE" asym sym "3.25 Hom PC plast 2 env random order $i" N 5000 "$SYN_Threshold" 2 C 20000 Y Y
+  "$VENV_PY" "$SPIKES_FILE" R D
+  "$VENV_PY" "$STDP_FILE" asym sym Y 1
+  #"$VENV_PY" "$PYTHON_FILE" asym sym "3.25 Hom PC plast 2 env random order $i" N 5000 "$SYN_Threshold" 2 D 20000 Y Y
+  "$VENV_PY" "$SPIKES_FILE" R E
+  "$VENV_PY" "$STDP_FILE" asym sym Y 1
+  #"$VENV_PY" "$PYTHON_FILE" asym sym "3.25 Hom PC plast 2 env random order $i" N 5000 "$SYN_Threshold" 2 E 20000 Y Y
+
+  #"$VENV_PY" "$PYTHON_FILE" asym sym "3.25 Hom PC plast 2 env A $i" Y 5000 "$SYN_Threshold" 1 A 1000 N N
+  #"$VENV_PY" "$PYTHON_FILE" asym sym "3.25 Hom PC plast 2 env B $i" Y 5000 "$SYN_Threshold" 1 B 1000 N N
+  #"$VENV_PY" "$PYTHON_FILE" asym sym "3.25 Hom PC plast 2 env C $i" Y 5000 "$SYN_Threshold" 1 C 1000 N N
+  #"$VENV_PY" "$PYTHON_FILE" asym sym "3.25 Hom PC plast 2 env D $i" Y 5000 "$SYN_Threshold" 1 D 1000 N N
+  #%"$VENV_PY" "$PYTHON_FILE" asym sym "No Hom PC plast 2 env E $i" Y 5000 "$SYN_Threshold" 1 E 1000 N N
+  #%"$VENV_PY" "$PYTHON_FILE" asym sym "No Hom no PC plast 2 env no cue E $i" N 5000 "$SYN_Threshold" 1 E 10000 N N
+  "$VENV_PY" "$PYTHON_FILE" asym sym "1.75 Hom no PC plast only replay $i" Y 5000 1.75 1 A 1000 N N
+  "$VENV_PY" "$PYTHON_FILE" asym sym "2.0 Hom no PC plast only replay $i" Y 5000 2.0 1 A 1000 N N
+  "$VENV_PY" "$PYTHON_FILE" asym sym "2.25 Hom no PC plast only replay $i" Y 5000 2.25 1 A 1000 N N
+  "$VENV_PY" "$PYTHON_FILE" asym sym "2.5 Hom no PC plast only replay $i" Y 5000 2.5 1 A 1000 N N
+  "$VENV_PY" "$PYTHON_FILE" asym sym "2.75 Hom no PC plast only replay $i" Y 5000 2.75 1 A 1000 N N
+  "$VENV_PY" "$PYTHON_FILE" asym sym "3.0 Hom no PC plast only replay $i" Y 5000 3.0 1 A 1000 N N
+  "$VENV_PY" "$PYTHON_FILE" asym sym "3.25 Hom no PC plast only replay $i" Y 5000 3.25 1 A 1000 N N
+  "$VENV_PY" "$PYTHON_FILE" asym sym "3.5 Hom no PC plast only replay $i" Y 5000 3.5 1 A 1000 N N
+  "$VENV_PY" "$PYTHON_FILE" asym sym "3.75 Hom no PC plast only replay $i" Y 5000 3.75 1 A 1000 N N
 
   
   # Sweep threshold (bash-safe float increment)

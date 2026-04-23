@@ -433,7 +433,7 @@ if __name__ == "__main__":
     # For wmax=7 nS, 0.5% would be 0.035, but start even smaller
     # w_init = 1e-10  # dimensionless (represents 0.00035 nS, ~0.005% of wmax)
     Ap = Am = 0.02
-    wmax_range = (3.75, 4.0)
+    wmax_range = (4.0, 4.25)
     #wmax = 4.0 # 
     wmax = random.uniform(*wmax_range)
     w_init = 0.1

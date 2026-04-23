@@ -4,7 +4,7 @@ Generates hippocampal like spike trains (see also helper file: `poisson_proc.py`
 authors: András Ecker, Eszter Vértes, Szabolcs Káli last update: 10.2018
 """
 import sys, warnings
-import os, pickle
+import os, pickle, secrets
 import numpy as np
 from tqdm import tqdm  # progress bar
 from poisson_proc import hom_poisson, inhom_poisson
@@ -92,19 +92,22 @@ def generate_spike_train(n_neurons, place_cell_ratio, linear, ordered=True, seed
         phi_starts = phi_pool[place_cells] * 2 * np.pi
     else:
         # PF starts drawn for place cells then sorted
-        phi_starts = np.sort(rng.random(len(place_cells)), kind="mergesort") * 2 * np.pi
+        #phi_starts = np.sort(rng.random(len(place_cells)), kind="mergesort") * 2 * np.pi
+        rng = np.random.default_rng(seed+1)
+        phi_pool = rng.random(n_neurons)
+        phi_starts = phi_pool[place_cells] * 2 * np.pi
 
     if linear:
         phi_starts = phi_starts - 0.1 * np.pi
         if PF_pklf_postfix is not None:
             pklf_name = os.path.join(base_path, "files",
-                                     f"PFstarts_{place_cell_ratio}_linear{'_no' if not ordered else ''}_{PF_pklf_postfix}.pkl")
+                                     f"PFstarts_{place_cell_ratio}_linear_{PF_pklf_postfix}.pkl")
         else:
             pklf_name = os.path.join(base_path, "files",
-                                 f"PFstarts_{place_cell_ratio}_linear{'_no' if not ordered else ''}.pkl")
+                                 f"PFstarts_{place_cell_ratio}_linear_{PF_pklf_postfix}.pkl")
     else:
         pklf_name = os.path.join(base_path, "files",
-                                 f"PFstarts_{place_cell_ratio}{'_no' if not ordered else ''}.pkl")
+                                 f"PFstarts_{place_cell_ratio}_{PF_pklf_postfix}.pkl")
 
     place_fields = {int(neuron_id): float(phi_starts[i]) for i, neuron_id in enumerate(place_cells)}
     save_place_fields(place_fields, pklf_name)
@@ -141,14 +144,19 @@ if __name__ == "__main__":
     n_neurons = 8000
     place_cell_ratio = 0.5
     linear = True
-    f_out = "spike_trains_%.1f_linear.npz"%place_cell_ratio if linear else "spike_trains_%.1f.npz"%place_cell_ratio; ordered = True
+    f_out = "spike_trains_%.1f_linear.npz"%place_cell_ratio if linear else "spike_trains_%.1f.npz"%place_cell_ratio
+    ordered = True
     #f_out = "intermediate_spike_trains_%.1f_linear.npz"%place_cell_ratio if linear else "intermediate_spike_trains_%.1f.npz"%place_cell_ratio; ordered = False
-
-    
-    if SwitchSection == "Y":
-        spike_trains = generate_spike_train(n_neurons, place_cell_ratio, linear=linear, ordered=ordered,swap_start_a=1500, swap_start_b=4500, swap_len=1000, PF_pklf_postfix=PF_pklf_postfix)
+    seed = secrets.randbits(63)
+    print(f"Using seed: {seed}")
+    if SwitchSection == "R":
+        ordered = False
+        spike_trains = generate_spike_train(n_neurons, place_cell_ratio, linear=linear, ordered=ordered, seed=seed, PF_pklf_postfix=PF_pklf_postfix)
     else:
-        spike_trains = generate_spike_train(n_neurons, place_cell_ratio, linear=linear, ordered=ordered, PF_pklf_postfix=PF_pklf_postfix)
+        if SwitchSection == "Y":
+            spike_trains = generate_spike_train(n_neurons, place_cell_ratio, linear=linear, ordered=ordered, seed=seed, swap_start_a=1500, swap_start_b=4500, swap_len=1000, PF_pklf_postfix=PF_pklf_postfix)
+        else:
+            spike_trains = generate_spike_train(n_neurons, place_cell_ratio, linear=linear, ordered=ordered, seed=seed, PF_pklf_postfix=PF_pklf_postfix)
     spike_trains = refractoriness(spike_trains)  # clean spike train (based on refractory period)
     spike_trains = np.array(spike_trains, dtype=object)
     npzf_name = os.path.join(base_path, "files", f_out)
