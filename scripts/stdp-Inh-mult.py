@@ -53,7 +53,7 @@ adapt_mult = 1.0
 
 nPCs = 8000
 #nBCs = 150 
-nBCs = 150 
+nBCs = 300 
 plasticity_scale_factor = 0.5  # scaling factor for the STDP window 
 # sparseness
 connection_prob_PC = 0.1
@@ -433,7 +433,7 @@ if __name__ == "__main__":
     # For wmax=7 nS, 0.5% would be 0.035, but start even smaller
     # w_init = 1e-10  # dimensionless (represents 0.00035 nS, ~0.005% of wmax)
     Ap = Am = 0.02
-    wmax_range = (4.0, 4.25)
+    wmax_range = (4.0, 4.1)  # Range for random wmax selection, in nS. Set to a narrow range to ensure reproducibility while allowing for some variability in the results.
     #wmax = 4.0 # 
     wmax = random.uniform(*wmax_range)
     w_init = 0.1

@@ -6,6 +6,7 @@ authors: András Ecker, Bence Bagi, Szabolcs Káli last update: 07.2019
 """
 
 import os
+import secrets
 import sys
 import shutil
 from brian2.units.allunits import *
@@ -80,7 +81,7 @@ cue_start = 1000 #Cue start location PC index (used only if Cue_Param is True)
 BC_mult = 1.0 # Multiplier for the number of BCs - Used to test the effect of increasing the number of BCs in the network
 nPCs = 8000
 #nBCs = 150
-nBCs = 150 
+nBCs = 300 
 # sparseness
 #connection_prob_PC = 0.1
 #connection_prob_BC = 0.25
@@ -214,8 +215,8 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_Conx_PC, STDP_mode
     np.random.seed(seed)
     pyrandom.seed(seed)
     global Selected_PC_Index
-    inh_plasticity_training = False  # If True, inhibitory plasticity is enabled during the training phase
-    inh_plasticity = False
+    inh_plasticity_training = True  # If True, inhibitory plasticity is enabled during the training phase
+    inh_plasticity = True
     #max_inhibition_mult = 1.5  # Maximum scaling of inhibitory weights
     max_inhibition_mult_PC_I = 1.0  # Maximum scaling of inhibitory weights for PC to BC synapses
     max_inhibition_mult_BC_E = 1.0  # Maximum scaling of inhibitory weights for BC to PC synapses
@@ -350,7 +351,7 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_Conx_PC, STDP_mode
     # Max weights for inhibitory plasticity   
     wmax_PC_I = 0.65* inh_max_weight
     wmax_BC_E = 0.85 * inh_max_weight
-    wmax_BC_I = 5.0 * inh_max_weight
+    wmax_BC_I = 5.0 * (inh_max_weight * 0.5)
     #wmax_PC_I = 2.0 # Allow for maximum scaling of the weight
     #wmax_BC_E = 2.4 # Allow for maximum scaling of the weight
     #wmax_BC_I = 10.0 # Allow for maximum scaling of the weight
@@ -370,10 +371,10 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_Conx_PC, STDP_mode
         Am_BC_E = 0.0
     # BC_I plasticity parameters (Ap > 0 is hSTDP)
     if inh_plasticity == True:
-        #Ap_BC_I = - step_size
-        #Am_BC_I = Ap_BC_I * -1.0 ## This is for symmetric inhibitory plasticity on BC to BC synapses
-        Ap_BC_I = step_size
-        Am_BC_I = Ap_BC_I  ## This is for symmetric inhibitory plasticity on BC to BC synapses
+        Ap_BC_I = - step_size
+        Am_BC_I = Ap_BC_I * -1.0 ## This is for symmetric inhibitory plasticity on BC to BC synapses
+        #Ap_BC_I = step_size
+        #Am_BC_I = Ap_BC_I  ## This is for symmetric inhibitory plasticity on BC to BC synapses
     else:
         Ap_BC_I = 0.0
         Am_BC_I = 0.0
@@ -677,12 +678,13 @@ if __name__ == "__main__":
     verbose = True 
     TFR = False
     linear = True
-    seed = 12345
+    seed = secrets.randbits(31)
+    #seed = 12345
 
     # Set ranges for each parameter
-    taup_sim_range = (0.0, 0.01)  # Example range for taup_sim
+    taup_sim_range = (10.0, 15.0)  # Example range for taup_sim
     taum_sim_range = (15, 20)  # Example range for taum_sim
-    stdp_pre_scale_factor_range = (0.0, 0.0)  # Example range for stdp_pre_scale_factor
+    stdp_pre_scale_factor_range = (-0.02, -0.01)  # Example range for stdp_pre_scale_factor
     stdp_post_scale_factor_range = (0.01, 0.02)  # Example range for stdp_post_scale_factor
     PC_SynDelay_range = (2.2, 2.3)  # Example range for PC_SynDelay
     Learning_Rate_range = (0.01, 0.02)  # Example range for Learning_Rate
@@ -750,7 +752,7 @@ if __name__ == "__main__":
     
     # Load weight matrix
     wmx_PC_E = load_wmx(os.path.join(base_path, "files", f_in)) #Weight matrix for PC_E
-    wmx_PC_E.data = SynWeightHome(wmx_PC_E.data,pr_value=syn_preserve) # Reset low weights below threshold
+    #wmx_PC_E.data = SynWeightHome(wmx_PC_E.data,pr_value=syn_preserve) # Reset low weights below threshold
     wmx_PC_I = load_wmx(os.path.join(base_path, "files", f_in_PC_I)) #Weight matrix for PC_I
     wmx_BC_E = load_wmx(os.path.join(base_path, "files", f_in_BC_E)) #Weight matrix for BC_E
     wmx_BC_I = load_wmx(os.path.join(base_path, "files", f_in_BC_I)) #Weight matrix for BC_I
