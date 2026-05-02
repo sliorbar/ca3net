@@ -80,8 +80,8 @@ cue_start = 1000 #Cue start location PC index (used only if Cue_Param is True)
 # population size
 BC_mult = 1.0 # Multiplier for the number of BCs - Used to test the effect of increasing the number of BCs in the network
 nPCs = 8000
-#nBCs = 150
-nBCs = 300 
+nBCs = 150
+#nBCs = 300 
 # sparseness
 #connection_prob_PC = 0.1
 #connection_prob_BC = 0.25
@@ -215,8 +215,8 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_Conx_PC, STDP_mode
     np.random.seed(seed)
     pyrandom.seed(seed)
     global Selected_PC_Index
-    inh_plasticity_training = True  # If True, inhibitory plasticity is enabled during the training phase
-    inh_plasticity = True
+    inh_plasticity_training = False  # If True, inhibitory plasticity is enabled during the training phase
+    inh_plasticity = False
     #max_inhibition_mult = 1.5  # Maximum scaling of inhibitory weights
     max_inhibition_mult_PC_I = 1.0  # Maximum scaling of inhibitory weights for PC to BC synapses
     max_inhibition_mult_BC_E = 1.0  # Maximum scaling of inhibitory weights for BC to PC synapses
@@ -657,6 +657,7 @@ if __name__ == "__main__":
         end_duration_length = int(sys.argv[9]) if len(sys.argv) > 9 else 10000
         save_PC_weights = sys.argv[10] if len(sys.argv) > 10 else None
         do_not_save = sys.argv[11] if len(sys.argv) > 11 else "N"
+        no_plast_PC = sys.argv[12] if len(sys.argv) > 12 else "N"
     except:
         STDP_mode = "sym"
         select_Conx = 1
@@ -665,6 +666,7 @@ if __name__ == "__main__":
         end_duration_length = 10000
         save_PC_weights = None
         do_not_save = "N"
+        no_plast_PC = "N"
     assert STDP_mode in ["sym", "asym"]
     assert CueT in ["N", "Y"]
     #RunType = RunT
@@ -682,9 +684,14 @@ if __name__ == "__main__":
     #seed = 12345
 
     # Set ranges for each parameter
-    taup_sim_range = (10.0, 15.0)  # Example range for taup_sim
+    #taup_sim_range = (15.0, 20.00)  # Example range for taup_sim
     taum_sim_range = (15, 20)  # Example range for taum_sim
-    stdp_pre_scale_factor_range = (-0.02, -0.01)  # Example range for stdp_pre_scale_factor
+    if no_plast_PC == "Y":
+        stdp_pre_scale_factor_range = (0.0, 0.0)  # No plasticity for PC to PC synapses
+        taup_sim_range = (0.0, 0.001)  # Set taup_sim to a very small value to effectively disable plasticity
+    else:
+        stdp_pre_scale_factor_range = (-0.02, -0.01)  # Example range for stdp_pre_scale_factor
+        taup_sim_range = (15.0, 20.00)
     stdp_post_scale_factor_range = (0.01, 0.02)  # Example range for stdp_post_scale_factor
     PC_SynDelay_range = (2.2, 2.3)  # Example range for PC_SynDelay
     Learning_Rate_range = (0.01, 0.02)  # Example range for Learning_Rate

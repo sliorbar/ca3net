@@ -52,8 +52,8 @@ base_path = os.path.sep.join(os.path.abspath("__file__").split(os.path.sep)[:-2]
 adapt_mult = 1.0
 
 nPCs = 8000
-#nBCs = 150 
-nBCs = 300 
+nBCs = 150 
+#nBCs = 300 
 plasticity_scale_factor = 0.5  # scaling factor for the STDP window 
 # sparseness
 connection_prob_PC = 0.1
