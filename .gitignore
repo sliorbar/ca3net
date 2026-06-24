@@ -9,6 +9,7 @@ ca3net.env
 ca3net.*.env
 !.env.example
 figures/
+figs/
 files/*pkl
 files/*npz
 files/results/

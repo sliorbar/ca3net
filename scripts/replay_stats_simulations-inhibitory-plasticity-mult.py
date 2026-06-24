@@ -81,7 +81,7 @@ cue_start = 1000 #Cue start location PC index (used only if Cue_Param is True)
 BC_mult = 1.0 # Multiplier for the number of BCs - Used to test the effect of increasing the number of BCs in the network
 nPCs = 8000
 nBCs = 150
-#nBCs = 300 
+#nBCs = 400 
 # sparseness
 #connection_prob_PC = 0.1
 #connection_prob_BC = 0.25
@@ -199,7 +199,7 @@ dx_gaba/dt = -x_gaba/decay_BC_I : 1
 
 #def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = None, engine=None, verbose=True, folder=None, expid=None):
 def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_Conx_PC, STDP_mode, cue, save, save_slice, seed, expdesc=None, engine=None, verbose=True, folder=None, expid=None,
-                   taup_sim=20, taum_sim=20, stdp_post_scale_factor=-0.1, stdp_pre_scale_factor=-0.1, delay_PC_E=2.2, Learning_Rate=0.01,connection_prob_PC = 0.1, connection_prob_BC = 0.25, place_cell_ratio=0.5, select_Conx = 1, connection_prob_BC_E=0.25, STDP_mode_Input = "sym", syn_preserve = 1.0, PF_pklf_name = None, tau_inh = 20, stdp_inh_scale_factor = 0.1, inh_max_weight = 2.0, end_duration_length = 10000, wmax = 4.0, do_not_save = "N"):
+                   taup_sim=20, taum_sim=20, stdp_post_scale_factor=-0.1, stdp_pre_scale_factor=-0.1, delay_PC_E=2.2, Learning_Rate=0.01,connection_prob_PC = 0.1, connection_prob_BC = 0.25, place_cell_ratio=0.5, select_Conx = 1, connection_prob_BC_E=0.25, STDP_mode_Input = "sym", syn_preserve = 1.0, PF_pklf_name = None, tau_inh = 20, stdp_inh_scale_factor = 0.1, inh_max_weight = 2.0, end_duration_length = 10000, wmax = 4.0, do_not_save = "N", env = None):
 
     """
     Sets up the network and runs simulation
@@ -371,10 +371,10 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_Conx_PC, STDP_mode
         Am_BC_E = 0.0
     # BC_I plasticity parameters (Ap > 0 is hSTDP)
     if inh_plasticity == True:
-        Ap_BC_I = - step_size
-        Am_BC_I = Ap_BC_I * -1.0 ## This is for symmetric inhibitory plasticity on BC to BC synapses
-        #Ap_BC_I = step_size
-        #Am_BC_I = Ap_BC_I  ## This is for symmetric inhibitory plasticity on BC to BC synapses
+        #Ap_BC_I = - step_size
+        #Am_BC_I = Ap_BC_I * -1.0 ## This is for symmetric inhibitory plasticity on BC to BC synapses
+        Ap_BC_I = step_size
+        Am_BC_I = Ap_BC_I  ## This is for symmetric inhibitory plasticity on BC to BC synapses
     else:
         Ap_BC_I = 0.0
         Am_BC_I = 0.0
@@ -395,7 +395,7 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_Conx_PC, STDP_mode
     Ap_BC_I = wmax_BC_I * Ap_BC_I 
     Am_BC_I = wmax_BC_I * Am_BC_I 
     synapse_details = synapse_details + ', Ap_BC_I=' + '{0:.3f}'.format(Ap_BC_I) + ', Am_BC_I=' + '{0:.3f}'.format(Am_BC_I) + ', Ap_PC_I=' + '{0:.3f}'.format(Ap_PC_I) + ', Am_PC_I=' + '{0:.3f}'.format(Am_PC_I) + ', Ap_BC_E=' + '{0:.3f}'.format(Ap_BC_E) + ', Am_BC_E=' + '{0:.3f}'.format(Am_BC_E)
-    synapse_details = synapse_details + ', Tau_BC_I=' + '{0:.3f}'.format(tau_BC_I) + ', Tau_BC_E=' + '{0:.3f}'.format(tau_BC_E) + ', Tau_PC_I=' + '{0:.3f}'.format(tau_PC_I) + ', wmax_PC_I=' + '{0:.3f}'.format(wmax_PC_I) + ', wmax_BC_E=' + '{0:.3f}'.format(wmax_BC_E) + ', wmax_BC_I=' + '{0:.3f}'.format(wmax_BC_I) + ', inh_plasticity=' + str(inh_plasticity) + ', wmax=' + '{0:.2f}'.format(wmax) + ', synaptic_preserve=' + '{0:.2f}'.format(syn_preserve) + ', end_duration=' + str(end_duration_length)
+    synapse_details = synapse_details + ', Tau_BC_I=' + '{0:.3f}'.format(tau_BC_I) + ', Tau_BC_E=' + '{0:.3f}'.format(tau_BC_E) + ', Tau_PC_I=' + '{0:.3f}'.format(tau_PC_I) + ', wmax_PC_I=' + '{0:.3f}'.format(wmax_PC_I) + ', wmax_BC_E=' + '{0:.3f}'.format(wmax_BC_E) + ', wmax_BC_I=' + '{0:.3f}'.format(wmax_BC_I) + ', inh_plasticity=' + str(inh_plasticity) + ', wmax=' + '{0:.2f}'.format(wmax) + ', synaptic_preserve=' + '{0:.2f}'.format(syn_preserve) + ', end_duration=' + str(end_duration_length) + ', env=' + str(env)
     print(synapse_details)
     #dApresyn = Ap
     #dApostsyn = Am
@@ -777,10 +777,11 @@ if __name__ == "__main__":
         wmx_PC_E=wmx_PC_E, wmx_PC_I=wmx_PC_I, wmx_BC_E=wmx_BC_E, wmx_BC_I=wmx_BC_I, wmx_Conx_PC=wmx_Conx_PC, STDP_mode=STDP_mode, cue=cue, save=save, save_slice=save_slice, expdesc=FolderDescription,
         engine=engine, seed=seed, verbose=verbose, folder=dir_name_save, expid=expid, PF_pklf_name = PF_pklf_name,
         taup_sim=taup_sim, taum_sim=taum_sim, stdp_post_scale_factor=stdp_post_scale_factor, 
-        stdp_pre_scale_factor=stdp_pre_scale_factor, delay_PC_E=PC_SynDelay, Learning_Rate=Learning_Rate,connection_prob_PC=connection_prob_PC,connection_prob_BC=connection_prob_BC, STDP_mode_Input = STDP_mode_Input, connection_prob_BC_E = connection_prob_BC_E, select_Conx=select_Conx, syn_preserve=syn_preserve, inh_max_weight = inh_max_weight, tau_inh = tau_inh, stdp_inh_scale_factor = stdp_inh_scale_factor, end_duration_length=end_duration_length, wmax=wmax, do_not_save=do_not_save)
+        stdp_pre_scale_factor=stdp_pre_scale_factor, delay_PC_E=PC_SynDelay, Learning_Rate=Learning_Rate,connection_prob_PC=connection_prob_PC,connection_prob_BC=connection_prob_BC, STDP_mode_Input = STDP_mode_Input, connection_prob_BC_E = connection_prob_BC_E, select_Conx=select_Conx, syn_preserve=syn_preserve, inh_max_weight = inh_max_weight, tau_inh = tau_inh, stdp_inh_scale_factor = stdp_inh_scale_factor, end_duration_length=end_duration_length, wmax=wmax, do_not_save=do_not_save, env = PF_pklf_name_postfix)
     
-    output_w = SynWeightHome(weightmx,syn_preserve) 
+    output_w = SynWeightHome(weightmx=weightmx,pr_value = syn_preserve, top_value = 1.0) 
     flattened_weights = output_w.flatten()
+    flattened_pre_weights = wmx_PC_E.data.flatten()
     weight_counts = pd.Series({
         "syn_preserve_value": float(syn_preserve),
         "below_syn_preserve": int(np.sum((flattened_weights <= syn_preserve) & (flattened_weights > 0 ))),
@@ -790,14 +791,23 @@ if __name__ == "__main__":
     print(weight_counts)
     datalayerOmen.SaveTrial(engine=engine, expid=expid,tablename="synaptic_weights_bins",data=[weight_counts.to_dict()])
     nonzero_weights = flattened_weights[flattened_weights > 0]
+    nonzero_pre_weights = flattened_pre_weights[flattened_pre_weights > 0]
     bin_size = 0.5
     max_w = float(np.ceil(nonzero_weights.max() / bin_size) * bin_size) if len(nonzero_weights) > 0 else bin_size
     bin_edges = np.arange(0.0, max_w + bin_size, bin_size)
     counts, _ = np.histogram(nonzero_weights, bins=bin_edges)
+    pre_counts, _ = np.histogram(nonzero_pre_weights, bins=bin_edges)
     weight_bin_rows = [
         {"bin_low": float(bin_edges[i]), "bin_high": float(bin_edges[i + 1]), "count": int(counts[i])}
         for i in range(len(counts))
     ]
+    pre_weight_bin_rows = [
+        {"bin_low": float(bin_edges[i]), "bin_high": float(bin_edges[i + 1]), "count": int(pre_counts[i])}
+        for i in range(len(pre_counts))
+    ]
+    #join pre and post weight bin rows
+    for i in range(len(weight_bin_rows)):
+        weight_bin_rows[i]["pre_count"] = pre_weight_bin_rows[i]["count"] if i < len(pre_weight_bin_rows) else 0
     datalayerOmen.SaveTrial(engine=engine, expid=expid, tablename="synaptic_weights_histogram", data=weight_bin_rows)
     if save_PC_weights == "Y":
         save_wmx(weightmx, os.path.join(base_path, "files", f_in))

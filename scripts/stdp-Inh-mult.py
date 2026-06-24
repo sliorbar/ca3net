@@ -53,7 +53,7 @@ adapt_mult = 1.0
 
 nPCs = 8000
 nBCs = 150 
-#nBCs = 300 
+#nBCs = 400 
 plasticity_scale_factor = 0.5  # scaling factor for the STDP window 
 # sparseness
 connection_prob_PC = 0.1
