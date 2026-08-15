@@ -16,7 +16,7 @@ set_device("cpp_standalone")  # speed up the simulation with generated C++ code
 import matplotlib.pyplot as plt
 from helper import load_spike_trains, save_wmx
 from plots import plot_STDP_rule, plot_wmx, plot_wmx_avg, plot_w_distr, save_selected_w, plot_weights
-
+import random 
 
 warnings.filterwarnings("ignore")
 base_path = os.path.sep.join(os.path.abspath("__file__").split(os.path.sep)[:-2])
@@ -88,11 +88,13 @@ dx_gaba/dt = -x_gaba/decay_BC_I : 1
 """
 
 
-def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin = None, LoadMatrix = None):
+def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin = None, LoadMatrix = None,
+             spiking_neurons_CA1 = None, spike_times_CA1 = None, sim_duration = 400):
     """
     Takes a spiking group of neurons, connects the neurons sparsely with each other, and learns the weight 'pattern' via STDP:
     exponential STDP: f(s) = A_p * exp(-s/tau_p) (if s > 0), where s=tpost_{spike}-tpre_{spike}
-    :param spiking_neurons, spike_times: np.arrays for Brian2's SpikeGeneratorGroup (list of lists created by `generate_spike_train.py`) - spike train used for learning
+    :param spiking_neurons, spike_times: np.arrays for Brian2's SpikeGeneratorGroup (list of lists created by `generate_spike_train.py`) - spike train used for learning (CA3/PC population)
+    :param spiking_neurons_CA1, spike_times_CA1: same as above but for the CA1 population; falls back to the CA3 spike train if not given
     :param taup, taum: time constant of weight change (in ms)
     :param Ap, Am: max amplitude of weight change
     :param wmax: maximum weight (in S)
@@ -100,13 +102,18 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin
     :return weightmx: learned synaptic weights
     """
 
+    if spiking_neurons_CA1 is None or spike_times_CA1 is None:
+        spiking_neurons_CA1, spike_times_CA1 = spiking_neurons, spike_times
+
     np.random.seed(12345)
     pyrandom.seed(12345)
     #plot_STDP_rule(taup/ms, taum/ms, Ap/1e-9, Am/1e-9, "STDP_rule")
     max_mult = 1.5  # Allow for maximum 1.5x scaling of the Ph2 weight
     max_mult_BC_E = 1.5  # Allow for maximum 1.5x scaling of the Ph2 weight
     initial_mult = 1.0  # Initial scaling of the weight - 50%
-    step_size = 0.01
+    step_size_range = (0.01, 0.03)  # Range for random step size selection, in nS. Set to a narrow range to ensure reproducibility while allowing for some variability in the results.
+    step_size = random.uniform(*step_size_range)  # Randomly select step size from the specified range
+    #step_size = 0.01
     inh_tau = 40 * ms
     w_PC_I_inp = 0.65 #* 1e-9 # nS # Taken from Ecker 2022
     w_BC_E_inp = 0.85 #* 1e-9 # nS # Taken from Ecker 2022
@@ -130,7 +137,7 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin
     BCs.vm  = Vrest_BC; BCs.g_ampa = 0.0; BCs.g_gaba = 0.0    
 
     #CA1 Area population
-    CA1_PCs = SpikeGeneratorGroup(nPCs, spiking_neurons, spike_times*second)
+    CA1_PCs = SpikeGeneratorGroup(nPCs, spiking_neurons_CA1, spike_times_CA1*second)
     CA1_BCs = NeuronGroup(nBCs, model=eqs_BC, threshold="vm>spike_th_BC",
                       reset="vm=Vreset_BC; w+=b_BC", refractory=tref_BC, method="exponential_euler")
     CA1_BCs.vm  = Vrest_BC; CA1_BCs.g_ampa = 0.0; CA1_BCs.g_gaba = 0.0 
@@ -318,7 +325,7 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin
     SM_BC = SpikeMonitor(BCs)
     SM_CA1_PC = SpikeMonitor(CA1_PCs)
     SM_CA1_BC = SpikeMonitor(CA1_BCs)
-    run(400*second, report="text")
+    run(sim_duration*second, report="text")
     print("Total spikes - SM_PC:", SM_PC.num_spikes)
     print("Total spikes - SM_BC:", SM_BC.num_spikes)
     print("Total spikes - SM_CA1_PC:", SM_CA1_PC.num_spikes)
@@ -346,14 +353,17 @@ if __name__ == "__main__":
     try:
         STDP_mode = sys.argv[2]
         LoadMatrix = sys.argv[3]
+        sim_duration = float(sys.argv[4]) if len(sys.argv) > 4 else 400
     except:
         STDP_mode = "sym"
         LoadMatrix = None
+        sim_duration = 400
     assert STDP_mode in ["asym", "sym"]
 
     place_cell_ratio = 0.5
     linear = True
     f_in = "spike_trains_%.1f_linear.npz" % place_cell_ratio if linear else "spike_trains_%.1f.npz" % place_cell_ratio
+    f_in_CA1 = "spike_trains_%.1f_linear_CA1.npz" % place_cell_ratio if linear else "spike_trains_%.1f_CA1.npz" % place_cell_ratio
     f_out = "wmx_%s_%.1f_linear.npz" % (STDP_mode, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)
     #f_in = "intermediate_spike_trains_%.1f_linear.npz" % place_cell_ratio if linear else "intermediate_spike_trains_%.1f.npz" % place_cell_ratio
     #f_out = "intermediate_wmx_%s_%.1f_linear.npz" % (STDP_mode, place_cell_ratio) if linear else "intermediate_wmx_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)
@@ -371,14 +381,25 @@ if __name__ == "__main__":
         #wmax = 2e-8  # S
         #scale_factor = 0.62
     #w_init = 1e-10  # S
-    Ap = Am = 0.01
-    wmax = 6.0 # 
+    ap_ap_range = (0.01, 0.03)  # Range for random Ap selection, in nS. Set to a narrow range to ensure reproducibility while allowing for some variability in the results.
+    #Ap = Am = 0.02
+    Ap = random.uniform(*ap_ap_range)  # Randomly select Ap from the specified range
+    Am = Ap  # Ensure Am is the negative of Ap for symmetry
+    wmax_range = (4.0, 4.3)  # Range for random wmax selection, in nS. Set to a narrow range to ensure reproducibility while allowing for some variability in the results.
+    #wmax = 4.0 # 
+    wmax = random.uniform(*wmax_range)    
     w_init = 0.1
     Ap *= wmax; Am *= wmax  # needed to reproduce Brian1 results
 
     spiking_neurons, spike_times = load_spike_trains(os.path.join(base_path, "files", f_in))
+    try:
+        spiking_neurons_CA1, spike_times_CA1 = load_spike_trains(os.path.join(base_path, "files", f_in_CA1))
+    except FileNotFoundError:
+        print("No separate CA1 spike train found at %s, reusing the CA3/PC spike train for CA1" % f_in_CA1)
+        spiking_neurons_CA1, spike_times_CA1 = spiking_neurons, spike_times
 
-    weightmx, wmatrix_PCI, wmatrix_BC_E, wmatrix_BC_I, weightmx_CA1_PC, weightmx_CA1_BC = learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init)
+    weightmx, wmatrix_PCI, wmatrix_BC_E, wmatrix_BC_I, weightmx_CA1_PC, weightmx_CA1_BC = learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init,
+                                                                                                     spiking_neurons_CA1=spiking_neurons_CA1, spike_times_CA1=spike_times_CA1, sim_duration=sim_duration)
     #weightmx *= scale_factor  # quick and dirty additional scaling! (in an ideal world the STDP parameters should be changed to include this scaling...)
     #wmatrix_PCI *= scale_factor
     #wmatrix_BC_E *= scale_factor

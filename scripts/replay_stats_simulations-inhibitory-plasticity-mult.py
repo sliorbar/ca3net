@@ -28,7 +28,7 @@ import random
 from scipy.sparse import coo_matrix
 #import brian2genn
 from helper import load_wmx, preprocess_monitors, generate_cue_spikes,\
-                   save_vars, save_PSD, save_TFR, save_LFP, save_replay_analysis,save_wmx,save_vars_syn,SynWeightDist,save_vars_syn_cpp, SynWeightHome, SynWeightHomeUniform, _load_PF_starts
+                   save_vars, save_PSD, save_TFR, save_LFP, save_replay_analysis,save_wmx,save_vars_syn,SynWeightDist,save_vars_syn_cpp, SynWeightHome, SynWeightHomeUniform, _load_PF_starts, writeExpParam, generate_cue_spikes_ordered
 from detect_replay import replay_circular, slice_high_activity, replay_linear
 from detect_oscillations import analyse_rate, ripple_AC, ripple, gamma, calc_TFR, analyse_estimated_LFP
 from plots import plot_violin, plot_raster, plot_posterior_trajectory, plot_PSD, plot_TFR, plot_zoomed, plot_detailed, plot_LFP, set_fig_dir, plot_wmx,set_len_sim,plot_histogram_wmx, plot_Zoom_Weights,fig_dir
@@ -80,8 +80,8 @@ cue_start = 1000 #Cue start location PC index (used only if Cue_Param is True)
 # population size
 BC_mult = 1.0 # Multiplier for the number of BCs - Used to test the effect of increasing the number of BCs in the network
 nPCs = 8000
-nBCs = 150
-#nBCs = 400 
+#nBCs = 150
+nBCs = 300 
 # sparseness
 #connection_prob_PC = 0.1
 #connection_prob_BC = 0.25
@@ -215,8 +215,8 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_Conx_PC, STDP_mode
     np.random.seed(seed)
     pyrandom.seed(seed)
     global Selected_PC_Index
-    inh_plasticity_training = False  # If True, inhibitory plasticity is enabled during the training phase
-    inh_plasticity = False
+    inh_plasticity_training = True  # If True, inhibitory plasticity is enabled during the training phase
+    inh_plasticity = True
     #max_inhibition_mult = 1.5  # Maximum scaling of inhibitory weights
     max_inhibition_mult_PC_I = 1.0  # Maximum scaling of inhibitory weights for PC to BC synapses
     max_inhibition_mult_BC_E = 1.0  # Maximum scaling of inhibitory weights for BC to PC synapses
@@ -278,7 +278,8 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_Conx_PC, STDP_mode
             PCdata_for_save["PC_Order"].isin(cue_orders), "PC_Index"
         ].to_numpy(dtype=int)
         num_of_neurons = len(cue_targets)
-        spike_times, spiking_neurons = generate_cue_spikes(neurons=num_of_neurons)
+        #spike_times, spiking_neurons = generate_cue_spikes(neurons=num_of_neurons)
+        spike_times, spiking_neurons = generate_cue_spikes_ordered(neurons=num_of_neurons, isi=5.0, window_size=30.0, spiking_rate=400.0, cue_start_time=1000.0)
         cue_input = SpikeGeneratorGroup(num_of_neurons, spiking_neurons, spike_times*second)
         # connects at the end of PC pop (...end of track in linear case)
         C_PC_cue = Synapses(cue_input, PCs, on_pre="x_ampaMF+=norm_PC_MF*w_PC_MF")
@@ -308,7 +309,7 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_Conx_PC, STDP_mode
     #To align with code in Brian2 documentation (https://brian2.readthedocs.io/en/latest/examples/frompapers.Izhikevich_2007.html?highlight=stdp#example-izhikevich-2007)
     dApresyn = Ap
     dApostsyn = Am 
-
+    w_exc_no_post_spike = 0.9999
     synapse_setup='''
     w_exc:1
     dApresyn/dt = -Apresyn/taup : 1 (event-driven)
@@ -317,11 +318,11 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_Conx_PC, STDP_mode
     on_pre_setup = '''
     x_ampa+=norm_PC_E*w_exc
     Apresyn += dApresyn
-    w_exc = clip(w_exc + Apostsyn,0,wmax)
+    w_exc = clip(w_exc * w_exc_no_post_spike + Apostsyn,0,wmax)
     '''
     on_post_setup= '''
     Apostsyn += dApostsyn
-    w_exc = clip(w_exc + Apresyn,0,wmax)
+    w_exc = clip(w_exc * w_exc_no_post_spike + Apresyn,0,wmax)
     '''
           
     PCs_Weights = np.zeros((nPCs, nPCs))
@@ -355,6 +356,10 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_Conx_PC, STDP_mode
     #wmax_PC_I = 2.0 # Allow for maximum scaling of the weight
     #wmax_BC_E = 2.4 # Allow for maximum scaling of the weight
     #wmax_BC_I = 10.0 # Allow for maximum scaling of the weight
+    min_mult = 0.8
+    w_PC_I_min = w_PC_I_input * min_mult
+    w_BC_E_min = w_BC_E_input * min_mult
+    w_BC_I_min = w_BC_I_input * min_mult
         
     if inh_plasticity == True:
         Ap_PC_I = -step_size
@@ -397,6 +402,7 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_Conx_PC, STDP_mode
     synapse_details = synapse_details + ', Ap_BC_I=' + '{0:.3f}'.format(Ap_BC_I) + ', Am_BC_I=' + '{0:.3f}'.format(Am_BC_I) + ', Ap_PC_I=' + '{0:.3f}'.format(Ap_PC_I) + ', Am_PC_I=' + '{0:.3f}'.format(Am_PC_I) + ', Ap_BC_E=' + '{0:.3f}'.format(Ap_BC_E) + ', Am_BC_E=' + '{0:.3f}'.format(Am_BC_E)
     synapse_details = synapse_details + ', Tau_BC_I=' + '{0:.3f}'.format(tau_BC_I) + ', Tau_BC_E=' + '{0:.3f}'.format(tau_BC_E) + ', Tau_PC_I=' + '{0:.3f}'.format(tau_PC_I) + ', wmax_PC_I=' + '{0:.3f}'.format(wmax_PC_I) + ', wmax_BC_E=' + '{0:.3f}'.format(wmax_BC_E) + ', wmax_BC_I=' + '{0:.3f}'.format(wmax_BC_I) + ', inh_plasticity=' + str(inh_plasticity) + ', wmax=' + '{0:.2f}'.format(wmax) + ', synaptic_preserve=' + '{0:.2f}'.format(syn_preserve) + ', end_duration=' + str(end_duration_length) + ', env=' + str(env)
     print(synapse_details)
+    
     #dApresyn = Ap
     #dApostsyn = Am
     dApresyn_BC_I = Ap_BC_I
@@ -415,11 +421,11 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_Conx_PC, STDP_mode
     on_pre_setup_PC_I = '''
     x_ampa+=norm_PC_I*w_PC_I
     Apresyn_PC_I += dApresyn_PC_I
-    w_PC_I = clip(w_PC_I + Apostsyn_PC_I,0,wmax_PC_I)
+    w_PC_I = clip(w_PC_I + Apostsyn_PC_I,w_PC_I_min,wmax_PC_I)
     '''
     on_post_setup_PC_I= '''
     Apostsyn_PC_I += dApostsyn_PC_I
-    w_PC_I = clip(w_PC_I + Apresyn_PC_I,0,wmax_PC_I)
+    w_PC_I = clip(w_PC_I + Apresyn_PC_I,w_PC_I_min,wmax_PC_I)
     '''
     # BC_E modeling
     synapse_model_BC_E='''
@@ -430,11 +436,11 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_Conx_PC, STDP_mode
     on_pre_setup_BC_E = '''
     x_gaba+=norm_BC_E*w_BC_E
     Apresyn_BC_E += dApresyn_BC_E
-    w_BC_E = clip(w_BC_E + Apostsyn_BC_E,0,wmax_BC_E)
+    w_BC_E = clip(w_BC_E + Apostsyn_BC_E,w_BC_E_min,wmax_BC_E)
     '''
     on_post_setup_BC_E= '''
     Apostsyn_BC_E += dApostsyn_BC_E
-    w_BC_E = clip(w_BC_E + Apresyn_BC_E,0,wmax_BC_E)
+    w_BC_E = clip(w_BC_E + Apresyn_BC_E,w_BC_E_min,wmax_BC_E)
     '''
     # BC_I modeling
     synapse_model_BC_I='''
@@ -445,11 +451,11 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_Conx_PC, STDP_mode
     on_pre_setup_BC_I = '''
     x_gaba+=norm_BC_I*w_BC_I
     Apresyn_BC_I += dApresyn_BC_I
-    w_BC_I = clip(w_BC_I + Apostsyn_BC_I,0,wmax_BC_I)
+    w_BC_I = clip(w_BC_I + Apostsyn_BC_I,w_BC_I_min,wmax_BC_I)
     '''
     on_post_setup_BC_I= '''
     Apostsyn_BC_I += dApostsyn_BC_I
-    w_BC_I = clip(w_BC_I + Apresyn_BC_I,0,wmax_BC_I)
+    w_BC_I = clip(w_BC_I + Apresyn_BC_I,w_BC_I_min,wmax_BC_I)
     '''
     # Synapses definition
     
@@ -579,6 +585,8 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_Conx_PC, STDP_mode
         save_vars_syn_cpp(StateM=C_PC_E_StateM, folder=fig_dir, SpikeM=SM_PC,SpikeM_BC = SM_BC, selected_pc=detailed_selection, subset = subset_df ,RateM=RM_PC, RateM_BC = RM_BC,engine=engine,expid=expid,offset=0,runType="alt",synapses=C_PC_E_STDP, do_not_save=do_not_save)
         
     datalayerOmen.CloseTrial(engine=engine,expid=expid)
+    # Write the experiment parameters to the database
+    writeExpParam(expid=expid, engine=engine, description=synapse_details)
     # For iteration with the matrix - Save the synaptic weights
     f_out = "wmx_after_run_%s_%.1f_linear-itr2.npz" % (STDP_mode, place_cell_ratio) if linear else "wmx_after_run_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)
     weightmx = np.zeros((nPCs, nPCs))

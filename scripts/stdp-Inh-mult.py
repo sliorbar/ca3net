@@ -52,8 +52,8 @@ base_path = os.path.sep.join(os.path.abspath("__file__").split(os.path.sep)[:-2]
 adapt_mult = 1.0
 
 nPCs = 8000
-nBCs = 150 
-#nBCs = 400 
+#nBCs = 150 
+nBCs = 300 
 plasticity_scale_factor = 0.5  # scaling factor for the STDP window 
 # sparseness
 connection_prob_PC = 0.1
@@ -184,6 +184,11 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin
     w_PC_I_inp = w_PC_I_inp * initial_mult
     w_BC_E_inp = w_BC_E_inp * initial_mult
     w_BC_I_inp = w_BC_I_inp * initial_mult
+    #Min inhibitory weight for PC to BC synapses
+    min_mult = 0.8
+    w_PC_I_min = w_PC_I_inp * min_mult
+    w_BC_E_min = w_BC_E_inp * min_mult
+    w_BC_I_min = w_BC_I_inp * min_mult
     
     #PC = SpikeGeneratorGroup(nPCs, spiking_neurons, spike_times*second)
     #sPC = SpikeGeneratorGroup(nPCs, spiking_neurons, spike_times*second) # Spiking PCs based on the generated spike trains, used for learning
@@ -242,11 +247,11 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin
     on_pre_setup_PC_I = '''
     x_ampa+=norm_PC_I*w_e_inh
     Apresyn_PC_I += dApresyn_PC_I
-    w_e_inh = clip(w_e_inh + Apostsyn_PC_I,0,wmax_PC_I)
+    w_e_inh = clip(w_e_inh + Apostsyn_PC_I,w_PC_I_min,wmax_PC_I)
     '''
     on_post_setup_PC_I= '''
     Apostsyn_PC_I += dApostsyn_PC_I
-    w_e_inh = clip(w_e_inh + Apresyn_PC_I,0,wmax_PC_I)
+    w_e_inh = clip(w_e_inh + Apresyn_PC_I,w_PC_I_min,wmax_PC_I)
     '''
     # BC_E modeling
     synapse_model_BC_E='''
@@ -256,11 +261,11 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin
     '''
     on_pre_setup_BC_E = '''
     Apresyn_BC_E += dApresyn_BC_E
-    w_i_exc = clip(w_i_exc + Apostsyn_BC_E,0,wmax_BC_E)
+    w_i_exc = clip(w_i_exc + Apostsyn_BC_E,w_BC_E_min,wmax_BC_E)
     '''
     on_post_setup_BC_E= '''
     Apostsyn_BC_E += dApostsyn_BC_E
-    w_i_exc = clip(w_i_exc + Apresyn_BC_E,0,wmax_BC_E)
+    w_i_exc = clip(w_i_exc + Apresyn_BC_E,w_BC_E_min,wmax_BC_E)
     '''
     # BC_I modeling
     synapse_model_BC_I='''
@@ -271,11 +276,11 @@ def learning(spiking_neurons, spike_times, taup, taum, Ap, Am, wmax, w_init, fin
     on_pre_setup_BC_I = '''
     x_gaba+=norm_BC_I*w_i_inh
     Apresyn_BC_I += dApresyn_BC_I
-    w_i_inh = clip(w_i_inh + Apostsyn_BC_I,0,wmax_BC_I)
+    w_i_inh = clip(w_i_inh + Apostsyn_BC_I,w_BC_I_min,wmax_BC_I)
     '''
     on_post_setup_BC_I= '''
     Apostsyn_BC_I += dApostsyn_BC_I
-    w_i_inh = clip(w_i_inh + Apresyn_BC_I,0,wmax_BC_I)
+    w_i_inh = clip(w_i_inh + Apresyn_BC_I,w_BC_I_min,wmax_BC_I)
     '''
 
     
@@ -433,7 +438,7 @@ if __name__ == "__main__":
     # For wmax=7 nS, 0.5% would be 0.035, but start even smaller
     # w_init = 1e-10  # dimensionless (represents 0.00035 nS, ~0.005% of wmax)
     Ap = Am = 0.02
-    wmax_range = (4.0, 4.1)  # Range for random wmax selection, in nS. Set to a narrow range to ensure reproducibility while allowing for some variability in the results.
+    wmax_range = (4.2, 4.3)  # Range for random wmax selection, in nS. Set to a narrow range to ensure reproducibility while allowing for some variability in the results.
     #wmax = 4.0 # 
     wmax = random.uniform(*wmax_range)
     w_init = 0.1

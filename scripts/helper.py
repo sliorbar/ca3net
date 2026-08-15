@@ -5,6 +5,7 @@ author: András Ecker, last update: 06.2022
 """
 
 import os
+import re
 from shutil import rmtree
 import pickle
 from copy import deepcopy
@@ -353,6 +354,52 @@ def save_vars_syn_cpp(SpikeM, StateM, RateM, subset, selected_pc, folder, f_name
     with open(pklf_name, "wb") as f:
         pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)        
 
+# columns of `[dbo].[Experiments Parameters]` (besides `ExpID`), grouped by how their value should be parsed
+_EXP_PARAM_TABLE = "Experiments Parameters"
+_EXP_PARAM_STR_COLS = {"stdp_mode", "env"}
+_EXP_PARAM_BOOL_COLS = {"inh_plasticity", "cue"}
+_EXP_PARAM_INT_COLS = {"adaptation_mult", "cue_start", "end_duration",
+                       "selected_pc", "total_duration"}
+_EXP_PARAM_FLOAT_COLS = {"am", "am_bc_e", "am_bc_i", "am_ca1_bc", "am_ca1_pc", "am_pc_i",
+                         "ap", "ap_bc_e", "ap_bc_i", "ap_ca1_bc", "ap_ca1_pc", "ap_pc_i",
+                         "connection_prob_bc", "connection_prob_pc", "learning_rate",
+                         "synaptic_delay", "synaptic_preserve", "tau_bc_e", "tau_bc_i", "tau_pc_i",
+                         "taum", "taup", "wmax", "wmax_bc_e", "wmax_bc_i", "wmax_pc_i"}
+_EXP_PARAM_COLS = _EXP_PARAM_STR_COLS | _EXP_PARAM_BOOL_COLS | _EXP_PARAM_INT_COLS | _EXP_PARAM_FLOAT_COLS
+
+
+def writeExpParam(expid, engine, description):
+    """
+    Parses "param1 = value1, param2 = value2, ..." style experiment parameters out of `description`
+    and inserts a row for them into `[dbo].[Experiments Parameters]`
+    :param expid: experiment ID (`ExpID` column, foreign key into `Experiments`)
+    :param engine: sqlalchemy engine (see `datalayerOmen.InitializeSQLEngine()`)
+    :param description: long string containing "param = value" pairs (comma separated)
+    """
+    description = description.lower()
+    row = {"ExpID": expid}
+    for key, raw_value in re.findall(r"([a-z_][a-z0-9_ ]*?)\s*=\s*([^,]+)", description):
+        key = key.strip()
+        key = key.replace(" ", "_")
+        if key not in _EXP_PARAM_COLS:
+            print(f"Warning: unknown experiment parameter '{key}'")
+            continue
+        value = raw_value.strip().strip("'\"")
+        if key in _EXP_PARAM_STR_COLS:
+            row[key] = value
+        elif key in _EXP_PARAM_BOOL_COLS:
+            row[key] = int(value.strip().lower() == "true")
+        elif key in _EXP_PARAM_INT_COLS:
+            row[key] = int(float(value))
+        else:
+            row[key] = float(value)
+
+    savedata = df([row])
+    with engine.connect() as conn:
+        savedata.to_sql(name=_EXP_PARAM_TABLE, con=conn, if_exists="append", index=False)
+        conn.commit()
+
+
 def save_PSD(f_PC, Pxx_PC, f_BC, Pxx_BC, f_LFP, Pxx_LFP, seed, f_name="PSD"):
     """
     Saves PSDs for PC and BC pop as well as LFP
@@ -612,6 +659,46 @@ def generate_cue_spikes(rate=50.0, rnd=10, duration=0.2, neurons=11, dt=1e-4):
     for neuron_id in range(neurons):
         spike_times_neuron = np.asarray(hom_poisson(rate, rnd, t_max=duration, seed=12345 + neuron_id), dtype=float)
         if spike_times_neuron.size:
+            time_bins = np.floor(spike_times_neuron / dt).astype(np.int64)
+            unique_bins = np.unique(time_bins)
+            spike_times_neuron = unique_bins.astype(float) * dt
+            all_spike_times.append(spike_times_neuron)
+            all_spiking_neurons.append(np.full(spike_times_neuron.shape, neuron_id, dtype=int))
+
+    if not all_spike_times:
+        return np.array([], dtype=float), np.array([], dtype=int)
+
+    spike_times = np.concatenate(all_spike_times)
+    spiking_neurons = np.concatenate(all_spiking_neurons)
+    sort_idx = np.argsort(spike_times, kind="mergesort")
+
+    return spike_times[sort_idx], spiking_neurons[sort_idx]
+
+
+def generate_cue_spikes_ordered(isi=3.0, neurons=11, dt=1e-4, cue_start_time=250.0, window_size=20.0, spiking_rate=150.0):
+    """
+    Generates a Poisson spike train per neuron, in ascending neuron_id order, each within its own `window_size` ms
+    window at `spiking_rate` Hz, with window start times `isi` ms apart
+    (e.g. neuron 0's window starts at t=cue_start_time, neuron 1's at t=cue_start_time+isi, ...)
+    :param isi: lag between two adjacent neurons' window start times (in ms)
+    :param neurons: number of neurons
+    :param dt: time resolution (in s) - spike times get rounded to this resolution
+    :param cue_start_time: offset of the first neuron's window start from simulation start time (in ms)
+    :param window_size: width of each neuron's spiking window (in ms)
+    :param spiking_rate: rate of the Poisson spiking within each neuron's window (in Hz)
+    :return: spike_times, spiking_neurons: sorted arrays of spike times (in s) and corresponding neuron IDs
+    """
+
+    window_size_s = window_size / 1000.
+    n_rnds = max(10, int(spiking_rate * window_size_s * 3) + 10)
+
+    all_spike_times = []
+    all_spiking_neurons = []
+    for neuron_id in range(neurons):
+        window_start = (cue_start_time + neuron_id * isi) / 1000.
+        spike_times_neuron = np.asarray(hom_poisson(spiking_rate, n_rnds, t_max=window_size_s, seed=12345 + neuron_id), dtype=float)
+        if spike_times_neuron.size:
+            spike_times_neuron = spike_times_neuron + window_start
             time_bins = np.floor(spike_times_neuron / dt).astype(np.int64)
             unique_bins = np.unique(time_bins)
             spike_times_neuron = unique_bins.astype(float) * dt

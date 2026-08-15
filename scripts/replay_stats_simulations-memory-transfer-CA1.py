@@ -27,7 +27,7 @@ import random
 from scipy.sparse import coo_matrix
 #import brian2genn
 from helper import load_wmx, preprocess_monitors, generate_cue_spikes,\
-                   save_vars, save_PSD, save_TFR, save_LFP, save_replay_analysis,save_wmx,save_vars_syn,SynWeightDist,save_vars_syn_cpp, SynWeightHome
+                   save_vars, save_PSD, save_TFR, save_LFP, save_replay_analysis,save_wmx,save_vars_syn,SynWeightDist,save_vars_syn_cpp, SynWeightHome, SynWeightHomeUniform, _load_PF_starts, writeExpParam, generate_cue_spikes_ordered
 from detect_replay import replay_circular, slice_high_activity, replay_linear
 from detect_oscillations import analyse_rate, ripple_AC, ripple, gamma, calc_TFR, analyse_estimated_LFP
 from plots import plot_violin, plot_raster, plot_posterior_trajectory, plot_PSD, plot_TFR, plot_zoomed, plot_detailed, plot_LFP, set_fig_dir, plot_wmx,set_len_sim,plot_histogram_wmx, plot_Zoom_Weights,fig_dir
@@ -198,7 +198,7 @@ dx_gaba/dt = -x_gaba/decay_BC_I : 1
 
 #def run_simulation(wmx_PC_E, STDP_mode, cue, save, save_slice, seed, expdesc = None, engine=None, verbose=True, folder=None, expid=None):
 def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_CA1_PC, wmx_CA1_BC, STDP_mode, cue, save, save_slice, seed, expdesc=None, engine=None, verbose=True, folder=None, expid=None,
-                   taup_sim=20, taum_sim=20, stdp_post_scale_factor=-0.1, stdp_pre_scale_factor=-0.1, delay_PC_E=2.2, Learning_Rate=0.01,connection_prob_PC = 0.1, connection_prob_BC = 0.25, place_cell_ratio=0.5, STDP_Mode_Input = 'sym'):
+                   taup_sim=20, taum_sim=20, stdp_post_scale_factor=-0.1, stdp_pre_scale_factor=-0.1, delay_PC_E=2.2, Learning_Rate=0.01,connection_prob_PC = 0.1, connection_prob_BC = 0.25, place_cell_ratio=0.5, STDP_Mode_Input = 'sym', PF_pklf_name_CA1=None, PF_pklf_name=None):
 
     """
     Sets up the network and runs simulation
@@ -214,8 +214,8 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_CA1_PC, wmx_CA1_BC
     np.random.seed(seed)
     pyrandom.seed(seed)
     global Selected_PC_Index
-    inh_plasticity_training = True  # If True, inhibitory plasticity is enabled during the training phase
-    inh_plasticity = True
+    inh_plasticity_training = False  # If True, inhibitory plasticity is enabled during the training phase
+    inh_plasticity = False
     # synaptic weights (see `/optimization/optimize_network.py`)
     w_PC_I_input = 0.65  # nS
     w_BC_E_input = 0.85  # nS
@@ -242,10 +242,34 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_CA1_PC, wmx_CA1_BC
                       reset="vm=Vreset_BC; w+=b_BC", refractory=tref_BC, method="exponential_euler")
     CA1_BCs.vm  = Vrest_BC; CA1_BCs.g_ampa = 0.0; CA1_BCs.g_gaba = 0.0
 
+    # Save the CA1 population's place field order in the database (mirrors the CA3
+    # "place_field_selected" logic in replay_stats_simulations-inhibitory-plasticity-mult.py)
+   
     MF = PoissonGroup(nPCs, rate_MF)
     C_PC_MF = Synapses(MF, PCs, on_pre="x_ampaMF+=norm_PC_MF*w_PC_MF")
     C_PC_MF.connect(j="i")
 
+
+    pf_Starts = _load_PF_starts(PF_pklf_name)
+    PCdata = pd.DataFrame({
+        'PC_Index': list(pf_Starts.keys()),
+        'PF_Start': list(pf_Starts.values()),
+    })
+    PCdata = PCdata.sort_values('PF_Start', kind='mergesort').reset_index(drop=True)
+    PCdata['PC_Order'] = PCdata.index.astype(int)
+    PCdata_for_save = PCdata[['PC_Index', 'PC_Order']].copy()
+    datalayerOmen.SaveTrial(engine=engine, expid=expid, data=PCdata_for_save, tablename="place_field_selected")
+
+    pf_Starts_CA1 = _load_PF_starts(PF_pklf_name_CA1)
+    CA1data = pd.DataFrame({
+        'PC_Index': list(pf_Starts_CA1.keys()),
+        'PF_Start': list(pf_Starts_CA1.values()),
+    })
+    CA1data = CA1data.sort_values('PF_Start', kind='mergesort').reset_index(drop=True)
+    CA1data['PC_Order'] = CA1data.index.astype(int)
+    CA1data_for_save = CA1data[['PC_Index', 'PC_Order']].copy()
+    datalayerOmen.SaveTrial(engine=engine, expid=expid, data=CA1data_for_save, tablename="CA1_place_field_selected")
+    
     if cue:
         num_of_neurons = 100
         spike_times, spiking_neurons = generate_cue_spikes(neurons=num_of_neurons)
@@ -264,8 +288,8 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_CA1_PC, wmx_CA1_BC
     Ap = Ap * stdp_pre_scale_factor
     #wmax = 2e-8  # S
     #scale_factor = 1.27
-    #wmax = np.amax(wmx_PC_E) * max_excitation_mult_PC_E  # Allow for maximum scaling of the PC to PC weight
-    wmax = 5.0 # in nS, to match the original scale of the weights in training
+    wmax = np.amax(wmx_PC_E) #* max_excitation_mult_PC_E  # Allow for maximum scaling of the PC to PC weight
+    #wmax = 4.2 # in nS, to match the original scale of the weights in training
     Ap *= wmax
     Am *= wmax 
     #To align with code in Brian2 documentation (https://brian2.readthedocs.io/en/latest/examples/frompapers.Izhikevich_2007.html?highlight=stdp#example-izhikevich-2007)
@@ -342,7 +366,7 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_CA1_PC, wmx_CA1_BC
     wmax_BC_E = 2.4 # Allow for maximum scaling of the weight
     wmax_BC_I = 10.0 # Allow for maximum scaling of the weight
     wmax_CA1_PC = 1.5 # nS Allow for maximum scaling of the weight
-    wmax_CA1_BC = 5 # nS Allow for maximum scaling of the weight 
+    wmax_CA1_BC = 2 # nS Allow for maximum scaling of the weight 
     # CA1 to PC and BC plasticity parameters (Ap > 0 is hSTDP)
     Ap_CA1_PC = 0.02
     Am_CA1_PC = Ap_CA1_PC * -1.0
@@ -604,6 +628,7 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_CA1_PC, wmx_CA1_BC
     datalayerOmen.SaveTrial(engine=engine, expid=expid, tablename="CA1_PC_Spikes", data=ca1_pc_spikes)
     datalayerOmen.SaveTrial(engine=engine, expid=expid, tablename="CA1_BC_Spikes", data=ca1_bc_spikes)
     datalayerOmen.CloseTrial(engine=engine,expid=expid)
+    writeExpParam(expid=expid, engine=engine, description=synapse_details)
     # For iteration with the matrix - Save the synaptic weights
     f_out = "wmx_after_run_%s_%.1f_linear-itr2.npz" % (STDP_mode, place_cell_ratio) if linear else "wmx_after_run_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)
     weightmx = np.zeros((nPCs, nPCs))
@@ -734,7 +759,8 @@ if __name__ == "__main__":
     f_in_BC_I = f"wmx_{STDP_mode_Input}_{place_cell_ratio:.1f}_linear_BC_I.npz" if linear else f"wmx_{STDP_mode_Input}_{place_cell_ratio:.1f}_BC_I.pkl"
     f_in_CA1_PC = f"wmx_{STDP_mode_Input}_{place_cell_ratio:.1f}_linear_CA1_PC.npz" if linear else f"wmx_{STDP_mode_Input}_{place_cell_ratio:.1f}_CA1_PC.pkl"
     f_in_CA1_BC = f"wmx_{STDP_mode_Input}_{place_cell_ratio:.1f}_linear_CA1_BC.npz" if linear else f"wmx_{STDP_mode_Input}_{place_cell_ratio:.1f}_CA1_BC.pkl"
-    PF_pklf_name = os.path.join(base_path, "files", f"PFstarts_{place_cell_ratio}_linear.pkl") if linear else None
+    PF_pklf_name = os.path.join(base_path, "files", f"PFstarts_{place_cell_ratio}_linear_CA3.pkl") if linear else None
+    PF_pklf_name_CA1 = os.path.join(base_path, "files", f"PFstarts_{place_cell_ratio}_linear_CA1.pkl") if linear else None
     dir_name = os.path.join(base_path, "figures", f"{1:.2f}_replay_det_{STDP_mode}_{place_cell_ratio:.1f}") if linear else None
     dir_name_save = os.path.join(base_path, "figures", f"{1:.2f}_replay_det_{STDP_mode}_{place_cell_ratio:.1f}", FolderDescription) if linear else None
     
@@ -759,7 +785,7 @@ if __name__ == "__main__":
         wmx_PC_E=wmx_PC_E, wmx_PC_I=wmx_PC_I, wmx_BC_E=wmx_BC_E, wmx_BC_I=wmx_BC_I, STDP_mode=STDP_mode, cue=cue, save=save, save_slice=save_slice, expdesc=FolderDescription,
         engine=engine, seed=seed, verbose=verbose, folder=dir_name_save, expid=expid,
         taup_sim=taup_sim, taum_sim=taum_sim, stdp_post_scale_factor=stdp_post_scale_factor, 
-        stdp_pre_scale_factor=stdp_pre_scale_factor, delay_PC_E=PC_SynDelay, Learning_Rate=Learning_Rate,connection_prob_PC=connection_prob_PC,connection_prob_BC=connection_prob_BC, STDP_Mode_Input = STDP_mode_Input, wmx_CA1_PC=wmx_CA1_PC,wmx_CA1_BC=wmx_CA1_BC)
+        stdp_pre_scale_factor=stdp_pre_scale_factor, delay_PC_E=PC_SynDelay, Learning_Rate=Learning_Rate,connection_prob_PC=connection_prob_PC,connection_prob_BC=connection_prob_BC, STDP_Mode_Input = STDP_mode_Input, wmx_CA1_PC=wmx_CA1_PC,wmx_CA1_BC=wmx_CA1_BC, PF_pklf_name_CA1=PF_pklf_name_CA1, PF_pklf_name=PF_pklf_name)
     
     output_w = SynWeightHome(weightmx,pr_value=syn_preserve, top_value = 1.0) # Homeostatic synaptic compression with syn_preserve nS preservation threshold
     # Save only three values: threshold, count below threshold, and count at/above threshold
@@ -774,7 +800,7 @@ if __name__ == "__main__":
     datalayerOmen.SaveTrial(engine=engine, expid=expid,tablename="synaptic_weights_bins",data=[weight_counts.to_dict()])
     save_wmx(output_w, os.path.join(base_path, "files", f_in))
 
-    #device.delete()
+    device.delete()
     #plt.show()
 
   

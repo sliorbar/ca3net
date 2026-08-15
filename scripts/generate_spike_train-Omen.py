@@ -137,14 +137,16 @@ if __name__ == "__main__":
     try:
         SwitchSection = sys.argv[1]
         PF_pklf_postfix = sys.argv[2] if len(sys.argv) > 2 else None
+        out_suffix = sys.argv[3] if len(sys.argv) > 3 else ""
     except:
         SwitchSection = None
         PF_pklf_postfix = None
+        out_suffix = ""
     # --- Parameters
     n_neurons = 8000
     place_cell_ratio = 0.5
     linear = True
-    f_out = "spike_trains_%.1f_linear.npz"%place_cell_ratio if linear else "spike_trains_%.1f.npz"%place_cell_ratio
+    f_out = "spike_trains_%.1f_linear%s.npz"%(place_cell_ratio, out_suffix) if linear else "spike_trains_%.1f%s.npz"%(place_cell_ratio, out_suffix)
     ordered = True
     #f_out = "intermediate_spike_trains_%.1f_linear.npz"%place_cell_ratio if linear else "intermediate_spike_trains_%.1f.npz"%place_cell_ratio; ordered = False
     seed = secrets.randbits(63)
