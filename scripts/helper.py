@@ -362,7 +362,7 @@ _EXP_PARAM_INT_COLS = {"adaptation_mult", "cue_start", "end_duration",
                        "selected_pc", "total_duration"}
 _EXP_PARAM_FLOAT_COLS = {"am", "am_bc_e", "am_bc_i", "am_ca1_bc", "am_ca1_pc", "am_pc_i",
                          "ap", "ap_bc_e", "ap_bc_i", "ap_ca1_bc", "ap_ca1_pc", "ap_pc_i",
-                         "connection_prob_bc", "connection_prob_pc", "learning_rate",
+                         "connection_prob_bc", "connection_prob_pc", "learning_rate", "pc_ratio",
                          "synaptic_delay", "synaptic_preserve", "tau_bc_e", "tau_bc_i", "tau_pc_i",
                          "taum", "taup", "wmax", "wmax_bc_e", "wmax_bc_i", "wmax_pc_i"}
 _EXP_PARAM_COLS = _EXP_PARAM_STR_COLS | _EXP_PARAM_BOOL_COLS | _EXP_PARAM_INT_COLS | _EXP_PARAM_FLOAT_COLS
