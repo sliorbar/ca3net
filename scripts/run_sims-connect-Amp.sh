@@ -54,7 +54,7 @@ REPLAY_PLAST_PC="N"
 
 for ((pc_ratio_iteration=1; pc_ratio_iteration<=PC_RATIO_ITERATIONS; pc_ratio_iteration++)); do
   echo "Running pc_ratio $PC_RATIO"
-
+  STDP_A_MAX="5.0"
   for ((i=1; i<=ITERATIONS; i++)); do
     echo "Running iteration $i"
 

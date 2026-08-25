@@ -23,7 +23,7 @@ from sqlalchemy import false
 from sympy import true
 #prefs.codegen.target = "numpy"
 import matplotlib.pyplot as plt
-#import brian2cuda
+
 import random
 from scipy.sparse import coo_matrix
 #import brian2genn
@@ -33,22 +33,28 @@ from detect_replay import replay_circular, slice_high_activity, replay_linear
 from detect_oscillations import analyse_rate, ripple_AC, ripple, gamma, calc_TFR, analyse_estimated_LFP
 from plots import plot_violin, plot_raster, plot_posterior_trajectory, plot_PSD, plot_TFR, plot_zoomed, plot_detailed, plot_LFP, set_fig_dir, plot_wmx,set_len_sim,plot_histogram_wmx, plot_Zoom_Weights,fig_dir
 from brian2 import prefs
-
+'''
+import brian2cuda
 # Force C++17 for NVCC and for the host compiler it invokes
-#prefs.codegen.cpp.extra_compile_args = ['-std=c++17']
-#prefs.codegen.cpp.extra_link_args = []
+prefs.codegen.cpp.extra_compile_args = ['-std=c++17']
+prefs.codegen.cpp.extra_link_args = []
 
 # Keep your NVCC-side C++17 too (fine to keep)
-#prefs.devices.cuda_standalone.cuda_backend.extra_compile_args_nvcc = [
-#    "-w", "-use_fast_math",
-#    "--std=c++17",
-#]
-#prefs.devices.cpp_standalone.extra_make_args_unix = ["-j8"]
-#prefs.devices.cpp_standalone.extra_make_args_unix = [
-#    "CXXFLAGS=-std=c++17",
-#]
+prefs.devices.cuda_standalone.cuda_backend.extra_compile_args_nvcc = [
+    "-w", "-use_fast_math",
+    "--std=c++17",
+]
+prefs.devices.cpp_standalone.extra_make_args_unix = ["-j8"]
+prefs.devices.cpp_standalone.extra_make_args_unix = [
+    "CXXFLAGS=-std=c++17",
+]
+
+set_device('cuda_standalone', build_on_run=False)
+'''
 set_device('cpp_standalone', build_on_run=False)
-#set_device('cuda_standalone', build_on_run=False)
+prefs.core.default_float_dtype = np.float32
+
+
 
 
 base_path = os.path.sep.join(os.path.abspath("__file__").split(os.path.sep)[:-2])
@@ -80,8 +86,8 @@ cue_start = 1000 #Cue start location PC index (used only if Cue_Param is True)
 # population size
 BC_mult = 1.0 # Multiplier for the number of BCs - Used to test the effect of increasing the number of BCs in the network
 nPCs = 8000
-#nBCs = 150
-nBCs = 300 
+nBCs = 150
+#nBCs = 300 
 # sparseness
 #connection_prob_PC = 0.1
 #connection_prob_BC = 0.25
@@ -215,8 +221,8 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_Conx_PC, STDP_mode
     np.random.seed(seed)
     pyrandom.seed(seed)
     global Selected_PC_Index
-    inh_plasticity_training = True  # If True, inhibitory plasticity is enabled during the training phase
-    inh_plasticity = True
+    inh_plasticity_training = False  # If True, inhibitory plasticity is enabled during the training phase
+    inh_plasticity = False  # If True, inhibitory plasticity is enabled during the replay phase
     #max_inhibition_mult = 1.5  # Maximum scaling of inhibitory weights
     max_inhibition_mult_PC_I = 1.0  # Maximum scaling of inhibitory weights for PC to BC synapses
     max_inhibition_mult_BC_E = 1.0  # Maximum scaling of inhibitory weights for BC to PC synapses
@@ -576,7 +582,7 @@ def run_simulation(wmx_PC_E,wmx_PC_I, wmx_BC_E, wmx_BC_I, wmx_Conx_PC, STDP_mode
     else:
         net.run(end_duration_length*ms)
     
-    device.build(directory='output_offline_sim', compile=True, run=True, clean=True)
+    device.build(directory='output_offline_sim', compile=True, run=True, clean=True, debug=False)
     
     if save:
         #save_vars(SM_PC, RM_PC, StateM_PC, selection, seed)
@@ -738,7 +744,8 @@ if __name__ == "__main__":
     connection_prob_PC = 0.1
     connection_prob_BC = 0.25 
     connection_prob_BC_E = 0.1 
-    place_cell_ratio = 0.5
+    #place_cell_ratio = 0.5
+    place_cell_ratio = 0.35
     
     # Update folder description for each combination
     expid = datalayerOmen.InitializeTrial(engine=engine, description='syn-compression', 
@@ -821,7 +828,7 @@ if __name__ == "__main__":
         save_wmx(weightmx, os.path.join(base_path, "files", f_in))
     
 
-    device.delete()
+    #device.delete()
     #plt.show()
 
   

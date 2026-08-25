@@ -16,44 +16,49 @@ SPIKES_FILE="$REPO/scripts/generate_spike_train-Omen.py"
 
 # --- Params ---
 ITERATIONS=1
-SYN_Threshold="2.5" # Initial synaptic threshold for compression (will be incremented in each iteration)
+SYN_Threshold="2.0" # Initial synaptic threshold for compression (will be incremented in each iteration)
 
 for ((i=1; i<=ITERATIONS; i++)); do
   echo "Running iteration $i"
 
-  "$VENV_PY" "$SPIKES_FILE" N A
+  "$VENV_PY" "$SPIKES_FILE" N A "" 0.35
   "$VENV_PY" "$STDP_FILE" asym sym N 1
-  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold inh plast 300 bcs new min A env - Org Order $i" N 5000 "$SYN_Threshold" 1 A 20000 Y Y N
-  "$VENV_PY" "$SPIKES_FILE" R B
-  "$VENV_PY" "$STDP_FILE" asym sym Y 1
-  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold inh plast 300 bcs new min B env random order $i" N 5000 "$SYN_Threshold" 2 B 20000 Y Y N
-  "$VENV_PY" "$SPIKES_FILE" R C
-  "$VENV_PY" "$STDP_FILE" asym sym Y 1
-  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold inh plast 300 bcs new min C env random order $i" N 5000 "$SYN_Threshold" 2 C 20000 Y Y N
-  "$VENV_PY" "$SPIKES_FILE" R D
-  "$VENV_PY" "$STDP_FILE" asym sym Y 1
-  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold 300 bcs new min D env random order $i" N 5000 "$SYN_Threshold" 2 D 20000 Y Y N
-  "$VENV_PY" "$SPIKES_FILE" R E
-  "$VENV_PY" "$STDP_FILE" asym sym Y 1
-  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold 300 bcs new min E env random order $i" N 5000 "$SYN_Threshold" 2 E 20000 Y Y N
-  "$VENV_PY" "$SPIKES_FILE" R F
-  "$VENV_PY" "$STDP_FILE" asym sym Y 1
-  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold 300 bcs new min F env random order $i" N 5000 "$SYN_Threshold" 2 F 20000 Y N N
-  "$VENV_PY" "$SPIKES_FILE" R G
-  "$VENV_PY" "$STDP_FILE" asym sym Y 1
-  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold 300 bcs new min G env random order $i" N 5000 "$SYN_Threshold" 2 G 20000 Y N N
-  "$VENV_PY" "$SPIKES_FILE" R H
-  "$VENV_PY" "$STDP_FILE" asym sym Y 1
-  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold 300 bcs new min H env random order $i" N 5000 "$SYN_Threshold" 2 H 20000 Y N N
-  "$VENV_PY" "$SPIKES_FILE" R I
-  "$VENV_PY" "$STDP_FILE" asym sym Y 1
-  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold 300 bcs new min I env random order $i" N 5000 "$SYN_Threshold" 2 I 20000 Y N N
+  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold .35 pc ratio 5 wmax A env - Org Order $i" N 5000 "$SYN_Threshold" 1 A 20000 Y N N
+  "$VENV_PY" "$SPIKES_FILE" R B "" 0.35
+  "$VENV_PY" "$STDP_FILE" asym sym Y 2
+  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold .35 pc ratio 5 wmax B env - Org Order $i" N 5000 "$SYN_Threshold" 2 B 20000 Y Y N
+  "$VENV_PY" "$SPIKES_FILE" R C "" 0.35
+  "$VENV_PY" "$STDP_FILE" asym sym Y 2
+  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold .35 pc ratio 5 wmax C env - Org Order $i" N 5000 "$SYN_Threshold" 2 C 20000 Y Y N
+  "$VENV_PY" "$SPIKES_FILE" R D "" 0.35
+  "$VENV_PY" "$STDP_FILE" asym sym Y 2
+  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold .35 pc ratio 5 wmax D env - Org Order $i" N 5000 "$SYN_Threshold" 2 D 20000 Y Y N
+  "$VENV_PY" "$SPIKES_FILE" R E "" 0.35
+  "$VENV_PY" "$STDP_FILE" asym sym Y 2
+  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold .35 pc ratio 5 wmax E env - Org Order $i" N 5000 "$SYN_Threshold" 2 E 20000 Y Y N
+  "$VENV_PY" "$SPIKES_FILE" R F "" 0.35
+  "$VENV_PY" "$STDP_FILE" asym sym Y 2
+  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold .35 pc ratio 5 wmax F env - Org Order $i" N 5000 "$SYN_Threshold" 2 F 20000 Y N N
+  "$VENV_PY" "$SPIKES_FILE" R G "" 0.35
+  "$VENV_PY" "$STDP_FILE" asym sym Y 2
+  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold .35 pc ratio 5 wmax G env - Org Order $i" N 5000 "$SYN_Threshold" 2 G 20000 Y N N
+  "$VENV_PY" "$SPIKES_FILE" R H "" 0.35
+  "$VENV_PY" "$STDP_FILE" asym sym Y 2
+  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold .35 pc ratio 5 wmax H env - Org Order $i" N 5000 "$SYN_Threshold" 2 H 20000 Y N N
+  "$VENV_PY" "$SPIKES_FILE" R I "" 0.35
+  "$VENV_PY" "$STDP_FILE" asym sym Y 2
+  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold .35 pc ratio 5 wmax I env - Org Order $i" N 5000 "$SYN_Threshold" 2 I 20000 Y N N
   
   #"$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold No PC plast E env random order $i" N 5000 "$SYN_Threshold" 2 E 5000 Y N
 
-  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold inh plast 300 bcs new min preprocess mult env A $i" Y 5000 "$SYN_Threshold" 1 A 1000 N N N
-  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold inh plast 300 bcs new min preprocess mult env B $i" Y 5000 "$SYN_Threshold" 1 B 1000 N N N
-  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold inh plast 300 bcs new min preprocess mult env I $i" Y 5000 "$SYN_Threshold" 1 I 1000 N N N
+  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold .35 pc ratio 5 wmaxpreprocess mult env A $i" Y 5000 "$SYN_Threshold" 1 A 1000 N N N
+  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold .35 pc ratio 5 wmax preprocess mult env B $i" Y 5000 "$SYN_Threshold" 1 B 1000 N N N
+  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold .35 pc ratio 5 wmax preprocess mult env E $i" Y 5000 "$SYN_Threshold" 1 E 1000 N N N
+  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold .35 pc ratio 5 wmax preprocess mult env F $i" Y 5000 "$SYN_Threshold" 1 F 1000 N N N
+  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold .35 pc ratio 5 wmax preprocess mult env G $i" Y 5000 "$SYN_Threshold" 1 G 1000 N N N
+  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold .35 pc ratio 5 wmax preprocess mult env H $i" Y 5000 "$SYN_Threshold" 1 H 1000 N N N
+  "$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold .35 pc ratio 5 wmax preprocess mult env I $i" Y 5000 "$SYN_Threshold" 1 I 1000 N N N
+  
   #"$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold Sweep PC plast preprocess mult env D $i" Y 5000 "$SYN_Threshold" 1 D 1000 N N Y
   #"$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold Sweep PC plast preprocess mult env E $i" Y 5000 "$SYN_Threshold" 1 E 1000 N N Y
   #"$VENV_PY" "$PYTHON_FILE" asym sym "Hom $SYN_Threshold Sweep PC plast preprocess mult env no cue E $i" N 5000 "$SYN_Threshold" 1 E 10000 N N Y
@@ -69,5 +74,5 @@ for ((i=1; i<=ITERATIONS; i++)); do
 
   
   # Sweep threshold (bash-safe float increment)
-  # SYN_Threshold=$("$VENV_PY" -c 'import sys; print(f"{float(sys.argv[1]) + 0.25:.2f}")' "$SYN_Threshold")
+  SYN_Threshold=$("$VENV_PY" -c 'import sys; print(f"{float(sys.argv[1]) + 0.25:.2f}")' "$SYN_Threshold")
 done

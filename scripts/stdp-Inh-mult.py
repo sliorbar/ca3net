@@ -52,8 +52,8 @@ base_path = os.path.sep.join(os.path.abspath("__file__").split(os.path.sep)[:-2]
 adapt_mult = 1.0
 
 nPCs = 8000
-#nBCs = 150 
-nBCs = 300 
+nBCs = 150 
+#nBCs = 300 
 plasticity_scale_factor = 0.5  # scaling factor for the STDP window 
 # sparseness
 connection_prob_PC = 0.1
@@ -412,7 +412,8 @@ if __name__ == "__main__":
         select_Conx = 1
     assert STDP_mode in ["asym", "sym"]
 
-    place_cell_ratio = 0.5
+    #place_cell_ratio = 0.5
+    place_cell_ratio = 0.35
     linear = True
     f_in = "spike_trains_%.1f_linear.npz" % place_cell_ratio if linear else "spike_trains_%.1f.npz" % place_cell_ratio
     f_out = "wmx_%s_%.1f_linear.npz" % (STDP_mode, place_cell_ratio) if linear else "wmx_%s_%.1f.pkl" % (STDP_mode, place_cell_ratio)
@@ -438,7 +439,7 @@ if __name__ == "__main__":
     # For wmax=7 nS, 0.5% would be 0.035, but start even smaller
     # w_init = 1e-10  # dimensionless (represents 0.00035 nS, ~0.005% of wmax)
     Ap = Am = 0.02
-    wmax_range = (4.2, 4.3)  # Range for random wmax selection, in nS. Set to a narrow range to ensure reproducibility while allowing for some variability in the results.
+    wmax_range = (5.0, 5.1)  # Range for random wmax selection, in nS. Set to a narrow range to ensure reproducibility while allowing for some variability in the results.
     #wmax = 4.0 # 
     wmax = random.uniform(*wmax_range)
     w_init = 0.1
